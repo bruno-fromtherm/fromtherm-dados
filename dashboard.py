@@ -208,3 +208,4 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
                 st.info("Verifique se o arquivo Excel possui as abas 'Informações' e 'Dados' e se está no formato correto.")
+             Corrigir TypeError no stauth.Hasher
