@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import glob
 from datetime import datetime
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -48,8 +48,8 @@ def listar_arquivos_csv():
 
         try:
             partes = nome.replace(".csv", "").split("_")
+            # esperado: historico_L1_20260303_2140_OP1234_FT185.csv
             if len(partes) >= 6:
-                # partes[0] = "historico"
                 linha = partes[1]             # L1
                 data_str = partes[2]          # 20260303
                 hora_str = partes[3]          # 2140
@@ -128,16 +128,16 @@ if not arquivos_filtrados:
     st.stop()
 
 
-# --- Função para gerar PDF A4 bonito e organizado ---
-def criar_pdf_a4(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
+# --- Função para gerar PDF A4 paisagem, bonito ---
+def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=A4,
-        leftMargin=25,
-        rightMargin=25,
-        topMargin=30,
-        bottomMargin=30,
+        pagesize=landscape(A4),
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=40,
+        bottomMargin=40,
     )
 
     styles = getSampleStyleSheet()
@@ -145,22 +145,28 @@ def criar_pdf_a4(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         name="TitleCenter",
         parent=styles["Title"],
         alignment=1,  # centralizado
-        fontSize=16,
-        spaceAfter=12,
+        fontSize=18,
+        spaceAfter=18,
     )
     subtitle_style = ParagraphStyle(
-        name="SubTitle",
+        name="SubTitleCenter",
         parent=styles["Heading2"],
-        alignment=0,
-        fontSize=11,
-        spaceAfter=6,
+        alignment=1,
+        fontSize=12,
+        spaceAfter=12,
+    )
+    normal_center = ParagraphStyle(
+        name="NormalCenter",
+        parent=styles["Normal"],
+        alignment=1,
+        fontSize=9,
     )
 
     story = []
 
     # Cabeçalho
     story.append(Paragraph("Planilha Teste de Máquinas Fromtherm", title_style))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 10))
 
     data_str = meta["data"].strftime("%d/%m/%Y") if meta["data"] else "N/D"
     hora_str = meta["hora"] or "N/D"
@@ -168,7 +174,7 @@ def criar_pdf_a4(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     modelo_str = meta["modelo"] or "N/D"
     linha_str = meta["linha"] or "N/D"
 
-    # Tabela de informações em duas linhas (mais limpo)
+    # Bloco de informações
     info_data = [
         ["Data", data_str, "Hora", hora_str],
         ["Operação", operacao_str, "Modelo", modelo_str],
@@ -187,54 +193,57 @@ def criar_pdf_a4(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         )
     )
     story.append(info_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 16))
 
     # Título da tabela de dados
     story.append(Paragraph("Dados da Operação:", subtitle_style))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 8))
 
-    # Tabela dos dados com ajuste de largura de coluna
+    # Preparar dados da tabela
     cols = list(df_dados.columns)
     data_rows = df_dados.values.tolist()
-
-    # Cabeçalho + linhas
     table_data = [cols] + data_rows
 
-    # Definir larguras aproximadas em pontos (A4 ~ 540 pts de largura útil)
-    # Ajuste mais largura para colunas de texto curto, menos para numéricas
+    # Larguras das colunas (aproveitando largura horizontal maior)
     num_cols = len(cols)
-    if num_cols <= 8:
-        col_widths = [65] + [60] * (num_cols - 1)
-    else:
-        # Distribuição proporcional
-        base = 520 / num_cols
-        col_widths = [base] * num_cols
+    # largura útil ~ 760 pontos em landscape com margens definidas
+    total_width = 760
+    base = total_width / num_cols
+    col_widths = [base] * num_cols
 
     dados_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     dados_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                # Cabeçalho
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4D4D4D")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, 0), 8),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+
+                # Corpo da tabela - listrado
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F7F7F7")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+                 [colors.HexColor("#F7F7F7"), colors.HexColor("#EFEFEF")]),
+
                 ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
                 ("ALIGN", (0, 1), (-1, -1), "CENTER"),
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-                ("FONTSIZE", (0, 1), (-1, -1), 7),
+                ("FONTSIZE", (0, 1), (-1, -1), 8),
+
+                # Grade
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
             ]
         )
     )
     story.append(dados_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 14))
 
-    # Rodapé simples
+    # Rodapé
     rodape = f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}"
-    story.append(Paragraph(rodape, styles["Normal"]))
+    story.append(Paragraph(rodape, normal_center))
 
     doc.build(story)
     buffer.seek(0)
@@ -259,7 +268,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
             st.subheader("Dados da Operação")
             st.dataframe(df_dados, use_container_width=True)
 
-            # --- Exportar para Excel (organizado) ---
+            # --- Exportar para Excel (organizado e colorido) ---
             output_excel = BytesIO()
             with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
                 workbook = writer.book
@@ -268,54 +277,66 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
                 # Formatos
                 title_format = workbook.add_format(
-                    {"bold": True, "font_size": 14}
+                    {"bold": True, "font_size": 16, "align": "center"}
                 )
-                header_format = workbook.add_format(
+                header_info_format = workbook.add_format(
+                    {"bold": True, "bg_color": "#D9D9D9", "border": 1, "align": "center"}
+                )
+                info_value_format = workbook.add_format(
+                    {"border": 1, "align": "center"}
+                )
+                header_data_format = workbook.add_format(
                     {
                         "bold": True,
-                        "bg_color": "#D9D9D9",
+                        "bg_color": "#4D4D4D",
+                        "font_color": "white",
                         "border": 1,
                         "align": "center",
                     }
                 )
-                cell_format = workbook.add_format(
+                cell_data_format = workbook.add_format(
                     {
                         "border": 1,
                         "align": "center",
+                        "bg_color": "#FFF2CC",  # bege claro
                     }
                 )
 
-                # Título
-                worksheet.merge_range("A1:M1", "Planilha Teste de Máquinas Fromtherm", title_format)
+                # Título mesclado
+                num_cols = len(df_dados.columns)
+                last_col_letter = chr(ord('A') + num_cols - 1)
+                worksheet.merge_range(f"A1:{last_col_letter}1",
+                                      "Planilha Teste de Máquinas Fromtherm",
+                                      title_format)
 
-                # Infos (Data, Hora, Operação, Modelo, Linha)
+                # Linha de informações (linha 3)
                 data_excel = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else ""
                 hora_excel = arquivo["hora"] or ""
                 oper_excel = arquivo["operacao"] or ""
                 modelo_excel = arquivo["modelo"] or ""
                 linha_excel = arquivo["linha"] or ""
 
-                worksheet.write("A3", "Data", header_format)
-                worksheet.write("B3", data_excel, cell_format)
-                worksheet.write("C3", "Hora", header_format)
-                worksheet.write("D3", hora_excel, cell_format)
-                worksheet.write("E3", "Operação", header_format)
-                worksheet.write("F3", oper_excel, cell_format)
-                worksheet.write("G3", "Modelo", header_format)
-                worksheet.write("H3", modelo_excel, cell_format)
-                worksheet.write("I3", "Linha", header_format)
-                worksheet.write("J3", linha_excel, cell_format)
+                worksheet.write("A3", "Data", header_info_format)
+                worksheet.write("B3", data_excel, info_value_format)
+                worksheet.write("C3", "Hora", header_info_format)
+                worksheet.write("D3", hora_excel, info_value_format)
+                worksheet.write("E3", "Operação", header_info_format)
+                worksheet.write("F3", oper_excel, info_value_format)
+                worksheet.write("G3", "Modelo", header_info_format)
+                worksheet.write("H3", modelo_excel, info_value_format)
+                worksheet.write("I3", "Linha", header_info_format)
+                worksheet.write("J3", linha_excel, info_value_format)
 
-                # Cabeçalho dos dados na linha 5
+                # Cabeçalho dos dados (linha 5)
                 for col, col_name in enumerate(df_dados.columns):
-                    worksheet.write(4, col, col_name, header_format)
+                    worksheet.write(4, col, col_name, header_data_format)
 
-                # Dados a partir da linha 6
+                # Dados (a partir da linha 6)
                 for row in range(len(df_dados)):
                     for col in range(len(df_dados.columns)):
-                        worksheet.write(row + 5, col, df_dados.iloc[row, col], cell_format)
+                        worksheet.write(row + 5, col, df_dados.iloc[row, col], cell_data_format)
 
-                # Ajustar largura das colunas (mais bonito)
+                # Ajustar largura das colunas
                 for col in range(len(df_dados.columns)):
                     worksheet.set_column(col, col, 12)
 
@@ -333,8 +354,8 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 key=f"excel_download_{i}",
             )
 
-            # --- Exportar para PDF (A4, ajustado) ---
-            pdf_buffer = criar_pdf_a4(df_dados, arquivo)
+            # --- Exportar para PDF (A4 paisagem, colorido) ---
+            pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
             st.download_button(
                 label="Exportar para PDF",
                 data=pdf_buffer,
