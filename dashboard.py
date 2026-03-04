@@ -156,10 +156,12 @@ else:
                     styles = getSampleStyleSheet()
                     story = []
 
+                    # Linha corrigida: <b> em vez de <b>
                     story.append(Paragraph(f"<b>Histórico FromTherm - Modelo: {arquivo['modelo']}</b>", styles['h1']))
                     story.append(Paragraph(f"Data: {arquivo['data'].strftime('%d/%m/%Y')} - Hora: {arquivo['hora']}", styles['h3']))
                     story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
 
+                    # Linha corrigida: <b> em vez de <b>
                     story.append(Paragraph("<b>Informações do Histórico:</b>", styles['h2']))
                     info_data = [list(info_df.columns)] + info_df.values.tolist()
                     info_table = Table(info_data)
@@ -175,6 +177,7 @@ else:
                     story.append(info_table)
                     story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
 
+                    # Linha corrigida: <b> em vez de <b>
                     story.append(Paragraph("<b>Dados da Operação:</b>", styles['h2']))
                     dados_data = [list(dados_df.columns)] + dados_df.values.tolist()
                     dados_table = Table(dados_data)
@@ -205,4 +208,3 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
                 st.info("Verifique se o arquivo Excel possui as abas 'Informações' e 'Dados' e se está no formato correto.")
-Atualizar dashboard.py para ler arquivos localmente e corrigir erro 403
