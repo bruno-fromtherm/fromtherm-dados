@@ -1,9 +1,9 @@
 import streamlit as st
+import streamlit as st
 import pandas as pd
 import os
 import glob
 from datetime import datetime
-import streamlit_authenticator as stauth
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
@@ -13,29 +13,8 @@ from io import BytesIO
 # --- Configurações da Página ---
 st.set_page_config(layout="wide", page_title="Dashboard FromTherm")
 
-# --- Autenticação ---
-names = ["Operador FromTherm"]
-usernames = ["operador"]
-passwords = ["123456"] # Senha simples para demonstração. Em produção, use hashes!
-
-hashed_passwords = stauth.Hasher(passwords).generate()
-
-authenticator = stauth.Authenticate(names, usernames, hashed_passwords,
-    "fromtherm_dashboard_cookie", "abcdef", cookie_expiry_days=30)
-
-name, authentication_status, username = authenticator.login("Login", "main")
-
-if authentication_status == False:
-    st.error("Usuário/Senha incorretos")
-    st.stop()
-elif authentication_status == None:
-    st.warning("Por favor, insira seu usuário e senha")
-    st.stop()
-
-# --- Se o usuário estiver autenticado ---
-st.sidebar.title(f"Bem-vindo, {name}")
-authenticator.logout("Sair", "sidebar")
-
+# --- Cabeçalho simples, sem login (Autenticação removida) ---
+st.sidebar.title("FromTherm")
 st.title("Dashboard de Históricos FromTherm")
 
 # --- Configuração da pasta de dados ---
@@ -156,12 +135,11 @@ else:
                     styles = getSampleStyleSheet()
                     story = []
 
-                    # Linha corrigida: <b> em vez de <b>
+                    # Linhas corrigidas para negrito no PDF
                     story.append(Paragraph(f"<b>Histórico FromTherm - Modelo: {arquivo['modelo']}</b>", styles['h1']))
                     story.append(Paragraph(f"Data: {arquivo['data'].strftime('%d/%m/%Y')} - Hora: {arquivo['hora']}", styles['h3']))
                     story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
 
-                    # Linha corrigida: <b> em vez de <b>
                     story.append(Paragraph("<b>Informações do Histórico:</b>", styles['h2']))
                     info_data = [list(info_df.columns)] + info_df.values.tolist()
                     info_table = Table(info_data)
@@ -177,7 +155,6 @@ else:
                     story.append(info_table)
                     story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
 
-                    # Linha corrigida: <b> em vez de <b>
                     story.append(Paragraph("<b>Dados da Operação:</b>", styles['h2']))
                     dados_data = [list(dados_df.columns)] + dados_df.values.tolist()
                     dados_table = Table(dados_data)
@@ -208,5 +185,4 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
                 st.info("Verifique se o arquivo Excel possui as abas 'Informações' e 'Dados' e se está no formato correto.")
-             Corrigir TypeError no stauth.Hasher
-Reverter correção do Hasher para compatibilidade com versão antiga do stauth
+Remover autenticação e corrigir erro 403 (versão final)
