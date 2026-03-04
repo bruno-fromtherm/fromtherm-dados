@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit as st
 import pandas as pd
 import os
 import glob
@@ -131,17 +132,44 @@ if not arquivos_filtrados:
     st.stop()
 
 # --- Função para gerar PDF a partir do DataFrame de dados ---
-def criar_pdf_dados(df_dados, titulo, info_cabecalho):
+def criar_pdf_com_cabecalho(df_dados, arquivo_info):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
     story = []
 
-    story.append(Paragraph(f"<b>{titulo}</b>", styles["h1"]))
-    story.append(Paragraph(info_cabecalho, styles["h3"]))
-    story.append(Spacer(1, 12))
+    # Informações do cabeçalho
+    data_str = arquivo_info["data"].strftime("%d/%m/%Y") if arquivo_info["data"] else "N/D"
+    hora_str = arquivo_info["hora"] or "N/D"
+    operacao_str = arquivo_info["operacao"] or "N/D"
+    modelo_str = arquivo_info["modelo"] or "N/D"
+    linha_str = arquivo_info["linha"] or "N/D"
 
+    # Título principal do PDF
+    story.append(Paragraph("<b>Planilha Teste de Máquinas Fromtherm</b>", styles["h1"]))
+    story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
+
+    # Tabela de informações (replicando o formato do seu exemplo)
+    info_header_data = [
+        ["Data", "Hora", "Operação", "Modelo", "Linha"],
+        [data_str, hora_str, operacao_str, modelo_str, linha_str]
+    ]
+    info_table = Table(info_header_data, colWidths=[1.5*2.54, 1.5*2.54, 2*2.54, 1.5*2.54, 1.5*2.54]) # Larguras em cm
+    info_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
+
+    # Título para os dados da operação
     story.append(Paragraph("<b>Dados da Operação:</b>", styles["h2"]))
+    story.append(Spacer(1, 0.2 * 2.54 * 0.2)) # 0.2 cm
+
+    # Tabela de dados
     dados_data = [list(df_dados.columns)] + df_dados.values.tolist()
     dados_table = Table(dados_data)
     dados_table.setStyle(
@@ -158,6 +186,10 @@ def criar_pdf_dados(df_dados, titulo, info_cabecalho):
         )
     )
     story.append(dados_table)
+    story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
+
+    # Rodapé
+    story.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}", styles["Normal"]))
 
     doc.build(story)
     buffer.seek(0)
@@ -175,23 +207,45 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
     with st.expander(titulo_expander):
         try:
-            # Lê o CSV que veio da IHM
+            # Lê o CSV
             df_dados = pd.read_csv(arquivo["caminho"])
 
             st.subheader("Dados da Operação")
             st.dataframe(df_dados, use_container_width=True)
 
-            # --- Exportar para Excel (conversão CSV -> XLSX) ---
+            # --- Exportar para Excel (convertendo o CSV para XLSX com cabeçalho) ---
             output_excel = BytesIO()
             with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-                df_dados.to_excel(writer, sheet_name="Dados", index=False)
+                # Cria um DataFrame para as informações do cabeçalho
+                info_df = pd.DataFrame({
+                    "Data": [arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else "N/D"],
+                    "Hora": [arquivo["hora"] or "N/D"],
+                    "Operação": [arquivo["operacao"] or "N/D"],
+                    "Modelo": [arquivo["modelo"] or "N/D"],
+                    "Linha": [arquivo["linha"] or "N/D"]
+                })
+
+                # Escreve o título na primeira linha
+                worksheet = writer.book.add_worksheet("Dados")
+                worksheet.write(0, 0, "Planilha Teste de Máquinas Fromtherm", writer.book.add_format({'bold': True, 'font_size': 14}))
+
+                # Escreve as informações do cabeçalho a partir da linha 2
+                info_df.to_excel(writer, sheet_name="Dados", startrow=2, index=False, header=True)
+
+                # Escreve os dados da operação a partir da linha 5 (ajustar conforme necessidade)
+                df_dados.to_excel(writer, sheet_name="Dados", startrow=5, index=False, header=True)
+
+                # Adiciona o rodapé
+                worksheet.write(df_dados.shape[0] + 7, 0, f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}")
+
             output_excel.seek(0)
             st.download_button(
                 label="Exportar para Excel",
                 data=output_excel,
                 file_name=(
-                    f"historico_{arquivo['modelo']}_"
-                    f"{arquivo['data'].strftime('%Y%m%d') if arquivo['data'] else 'semdata'}_"
+                    f"Maquina_{arquivo['modelo'] or 'N/D'}_"
+                    f"{arquivo['operacao'] or 'N/D'}_"
+                    f"{arquivo['data'].strftime('%d%m%Y') if arquivo['data'] else 'semdata'}_"
                     f"{(arquivo['hora'] or '').replace(':', '')}.xlsx"
                 ),
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -199,17 +253,17 @@ for i, arquivo in enumerate(arquivos_filtrados):
             )
 
             # --- Exportar para PDF ---
-            titulo_pdf = f"Histórico FromTherm - Modelo: {arquivo['modelo'] or 'N/D'}"
-            info_cabecalho = (
-                f"Data: {data_str} - Hora: {arquivo['hora'] or '-'} - "
-                f"Operação: {arquivo['operacao'] or '-'}"
-            )
-            pdf_buffer = criar_pdf_dados(df_dados, titulo_pdf, info_cabecalho)
+            pdf_buffer = criar_pdf_com_cabecalho(df_dados, arquivo)
 
             st.download_button(
                 label="Exportar para PDF",
                 data=pdf_buffer,
-                file_name=arquivo["nome_arquivo"].replace(".csv", ".pdf"),
+                file_name=(
+                    f"Maquina_{arquivo['modelo'] or 'N/D'}_"
+                    f"{arquivo['operacao'] or 'N/D'}_"
+                    f"{arquivo['data'].strftime('%d%m%Y') if arquivo['data'] else 'semdata'}_"
+                    f"{(arquivo['hora'] or '').replace(':', '')}.pdf"
+                ),
                 mime="application/pdf",
                 key=f"pdf_download_{i}",
             )
