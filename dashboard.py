@@ -18,7 +18,7 @@ names = ["Operador FromTherm"]
 usernames = ["operador"]
 passwords = ["123456"] # Senha simples para demonstração. Em produção, use hashes!
 
-hashed_passwords = stauth.Hasher(passwords).generate()
+hashed_passwords = stauth.Hasher(passwords=passwords).generate()
 
 authenticator = stauth.Authenticate(names, usernames, hashed_passwords,
     "fromtherm_dashboard_cookie", "abcdef", cookie_expiry_days=30)
