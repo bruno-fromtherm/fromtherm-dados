@@ -128,16 +128,16 @@ if not arquivos_filtrados:
     st.stop()
 
 
-# --- Função para gerar PDF A4 paisagem, bonito ---
+# --- Função para gerar PDF A4 paisagem, com azul no cabeçalho ---
 def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=40,
-        rightMargin=40,
-        topMargin=40,
-        bottomMargin=40,
+        leftMargin=30,
+        rightMargin=30,
+        topMargin=30,
+        bottomMargin=30,
     )
 
     styles = getSampleStyleSheet()
@@ -146,14 +146,14 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         parent=styles["Title"],
         alignment=1,  # centralizado
         fontSize=18,
-        spaceAfter=18,
+        spaceAfter=16,
     )
     subtitle_style = ParagraphStyle(
-        name="SubTitleCenter",
+        name="SubTitleLeft",
         parent=styles["Heading2"],
-        alignment=1,
+        alignment=0,
         fontSize=12,
-        spaceAfter=12,
+        spaceAfter=8,
     )
     normal_center = ParagraphStyle(
         name="NormalCenter",
@@ -164,9 +164,9 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
 
     story = []
 
-    # Cabeçalho
+    # Título principal
     story.append(Paragraph("Planilha Teste de Máquinas Fromtherm", title_style))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 6))
 
     data_str = meta["data"].strftime("%d/%m/%Y") if meta["data"] else "N/D"
     hora_str = meta["hora"] or "N/D"
@@ -174,72 +174,62 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     modelo_str = meta["modelo"] or "N/D"
     linha_str = meta["linha"] or "N/D"
 
-    # Bloco de informações
-    info_data = [
-        ["Data", data_str, "Hora", hora_str],
-        ["Operação", operacao_str, "Modelo", modelo_str],
-        ["Linha", linha_str, "", ""],
+    # Bloco de informações no formato solicitado
+    info_lines = [
+        f"Data {data_str}",
+        f"Hora {hora_str}",
+        f"Operação {operacao_str}",
+        f"Modelo {modelo_str}",
+        f"Linha {linha_str}",
     ]
-    info_table = Table(info_data, colWidths=[60, 120, 60, 120])
-    info_table.setStyle(
-        TableStyle(
-            [
-                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ]
-        )
-    )
-    story.append(info_table)
-    story.append(Spacer(1, 16))
+    for line in info_lines:
+        story.append(Paragraph(line, styles["Normal"]))
+    story.append(Spacer(1, 10))
 
-    # Título da tabela de dados
+    # Título da seção de dados
     story.append(Paragraph("Dados da Operação:", subtitle_style))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # Preparar dados da tabela
     cols = list(df_dados.columns)
     data_rows = df_dados.values.tolist()
     table_data = [cols] + data_rows
 
-    # Larguras das colunas (aproveitando largura horizontal maior)
+    # Largura de tabela para ocupar bem a página paisagem
     num_cols = len(cols)
-    # largura útil ~ 760 pontos em landscape com margens definidas
-    total_width = 760
+    total_width = 780  # largura útil aproximada
     base = total_width / num_cols
     col_widths = [base] * num_cols
+
+    azul_cabecalho = colors.HexColor("#004A99")  # azul mais corporativo
 
     dados_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     dados_table.setStyle(
         TableStyle(
             [
-                # Cabeçalho
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4D4D4D")),
+                # Cabeçalho azul
+                ("BACKGROUND", (0, 0), (-1, 0), azul_cabecalho),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, 0), 9),
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
 
-                # Corpo da tabela - listrado
-                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F7F7F7")),
+                # Corpo da tabela listrado suave
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-                 [colors.HexColor("#F7F7F7"), colors.HexColor("#EFEFEF")]),
-
+                 [colors.HexColor("#F7FBFF"), colors.HexColor("#E6F0FF")]),
                 ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
                 ("ALIGN", (0, 1), (-1, -1), "CENTER"),
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
                 ("FONTSIZE", (0, 1), (-1, -1), 8),
 
-                # Grade
-                ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
+                # Linhas de grade finas
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
             ]
         )
     )
     story.append(dados_table)
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 10))
 
     # Rodapé
     rodape = f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}"
@@ -268,27 +258,36 @@ for i, arquivo in enumerate(arquivos_filtrados):
             st.subheader("Dados da Operação")
             st.dataframe(df_dados, use_container_width=True)
 
-            # --- Exportar para Excel (organizado e colorido) ---
+            # --- Exportar para Excel (organizado e com azul no cabeçalho) ---
             output_excel = BytesIO()
             with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
                 workbook = writer.book
                 worksheet = workbook.add_worksheet("Dados")
                 writer.sheets["Dados"] = worksheet
 
-                # Formatos
+                # Formatos de Excel
+                azul_cabecalho = "#004A99"
                 title_format = workbook.add_format(
                     {"bold": True, "font_size": 16, "align": "center"}
                 )
-                header_info_format = workbook.add_format(
-                    {"bold": True, "bg_color": "#D9D9D9", "border": 1, "align": "center"}
+                header_info_label = workbook.add_format(
+                    {
+                        "bold": True,
+                        "bg_color": "#D9E3F0",
+                        "border": 1,
+                        "align": "center",
+                    }
                 )
-                info_value_format = workbook.add_format(
-                    {"border": 1, "align": "center"}
+                header_info_value = workbook.add_format(
+                    {
+                        "border": 1,
+                        "align": "center",
+                    }
                 )
                 header_data_format = workbook.add_format(
                     {
                         "bold": True,
-                        "bg_color": "#4D4D4D",
+                        "bg_color": azul_cabecalho,
                         "font_color": "white",
                         "border": 1,
                         "align": "center",
@@ -298,43 +297,59 @@ for i, arquivo in enumerate(arquivos_filtrados):
                     {
                         "border": 1,
                         "align": "center",
-                        "bg_color": "#FFF2CC",  # bege claro
+                        "bg_color": "#F7FBFF",
                     }
                 )
 
-                # Título mesclado
+                # Título mesclado na primeira linha
                 num_cols = len(df_dados.columns)
-                last_col_letter = chr(ord('A') + num_cols - 1)
-                worksheet.merge_range(f"A1:{last_col_letter}1",
-                                      "Planilha Teste de Máquinas Fromtherm",
-                                      title_format)
+                last_col_idx = num_cols - 1
+                # Converter índice numérico de coluna em letra (A, B, C, ... até Z, depois AA, AB, etc.)
+                def col_letter(idx: int) -> str:
+                    result = ""
+                    idx_temp = idx
+                    while idx_temp >= 0:
+                        result = chr(ord("A") + (idx_temp % 26)) + result
+                        idx_temp = idx_temp // 26 - 1
+                    return result
 
-                # Linha de informações (linha 3)
+                last_col_letter = col_letter(last_col_idx)
+                worksheet.merge_range(
+                    f"A1:{last_col_letter}1",
+                    "Planilha Teste de Máquinas Fromtherm",
+                    title_format,
+                )
+
+                # Informações (formato solicitado)
                 data_excel = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else ""
                 hora_excel = arquivo["hora"] or ""
                 oper_excel = arquivo["operacao"] or ""
                 modelo_excel = arquivo["modelo"] or ""
                 linha_excel = arquivo["linha"] or ""
 
-                worksheet.write("A3", "Data", header_info_format)
-                worksheet.write("B3", data_excel, info_value_format)
-                worksheet.write("C3", "Hora", header_info_format)
-                worksheet.write("D3", hora_excel, info_value_format)
-                worksheet.write("E3", "Operação", header_info_format)
-                worksheet.write("F3", oper_excel, info_value_format)
-                worksheet.write("G3", "Modelo", header_info_format)
-                worksheet.write("H3", modelo_excel, info_value_format)
-                worksheet.write("I3", "Linha", header_info_format)
-                worksheet.write("J3", linha_excel, info_value_format)
+                # Linha 3 a 7 com texto na forma:
+                # Data 03/03/2026
+                # Hora 21:40
+                # Operação OP1234
+                # Modelo FT185
+                # Linha L1
+                info_labels = ["Data", "Hora", "Operação", "Modelo", "Linha"]
+                info_values = [data_excel, hora_excel, oper_excel, modelo_excel, linha_excel]
 
-                # Cabeçalho dos dados (linha 5)
+                for idx, (label, value) in enumerate(zip(info_labels, info_values)):
+                    row = 2 + idx  # começando na linha 3 (índice 2)
+                    worksheet.write(row, 0, label, header_info_label)
+                    worksheet.write(row, 1, value, header_info_value)
+
+                # Cabeçalho dos dados (linha 9)
+                header_row = 8
                 for col, col_name in enumerate(df_dados.columns):
-                    worksheet.write(4, col, col_name, header_data_format)
+                    worksheet.write(header_row, col, col_name, header_data_format)
 
-                # Dados (a partir da linha 6)
+                # Dados (a partir da linha 10)
                 for row in range(len(df_dados)):
                     for col in range(len(df_dados.columns)):
-                        worksheet.write(row + 5, col, df_dados.iloc[row, col], cell_data_format)
+                        worksheet.write(row + header_row + 1, col, df_dados.iloc[row, col], cell_data_format)
 
                 # Ajustar largura das colunas
                 for col in range(len(df_dados.columns)):
@@ -354,7 +369,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 key=f"excel_download_{i}",
             )
 
-            # --- Exportar para PDF (A4 paisagem, colorido) ---
+            # --- Exportar para PDF (A4 paisagem, azul, profissional) ---
             pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
             st.download_button(
                 label="Exportar para PDF",
