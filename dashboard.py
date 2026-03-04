@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit as st
 import pandas as pd
 import os
 import glob
@@ -11,17 +10,27 @@ from reportlab.lib import colors
 from io import BytesIO
 
 # --- Configuração básica da página ---
-st.set_page_config(layout="wide", page_title="Dashboard FromTherm")
+st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
+
+# --- Logo e cabeçalho na barra lateral ---
+LOGO_URL = "https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png"
+st.sidebar.image(LOGO_URL, use_column_width=True)
 st.sidebar.title("FromTherm")
-st.title("Dashboard de Históricos FromTherm")
+
+# --- Título principal da página ---
+st.title("Máquina de Teste Fromtherm")
 
 # --- Pasta onde ficam os arquivos de histórico ---
 DADOS_DIR = "dados"  # pasta 'dados' no mesmo nível do dashboard.py
 
-# --- Listar arquivos CSV localmente ---
+# --- Função para listar arquivos CSV localmente ---
 @st.cache_data(ttl=3600)
 def listar_arquivos_csv():
-    """Lista todos os arquivos .csv na pasta 'dados' e extrai informações do nome."""
+    """
+    Lista todos os arquivos .csv na pasta 'dados'
+    e extrai informações básicas do nome:
+    historico_L1_20260303_2140_OP1234_FT185.csv
+    """
     if not os.path.exists(DADOS_DIR):
         return []
 
@@ -36,7 +45,6 @@ def listar_arquivos_csv():
         operacao = ""
         modelo = ""
 
-        # Padrão esperado: historico_L1_20260303_2140_OP1234_FT185.csv
         try:
             partes = nome.replace(".csv", "").split("_")
             if len(partes) >= 6:
@@ -50,18 +58,20 @@ def listar_arquivos_csv():
                 data = datetime.strptime(data_str, "%Y%m%d").date()
                 hora = f"{hora_str[:2]}:{hora_str[2:]}"
         except Exception:
-            # Se o nome não seguir o padrão, só mantém o nome do arquivo
+            # Se o nome não seguir o padrão, apenas ignora os detalhes
             pass
 
-        info_arquivos.append({
-            "nome_arquivo": nome,
-            "caminho": caminho,
-            "linha": linha,
-            "data": data,
-            "hora": hora,
-            "operacao": operacao,
-            "modelo": modelo,
-        })
+        info_arquivos.append(
+            {
+                "nome_arquivo": nome,
+                "caminho": caminho,
+                "linha": linha,
+                "data": data,
+                "hora": hora,
+                "operacao": operacao,
+                "modelo": modelo,
+            }
+        )
 
     return info_arquivos
 
@@ -76,12 +86,15 @@ if not todos_arquivos_info:
 # --- Filtros na barra lateral ---
 st.sidebar.header("Filtros")
 
-modelos_disponiveis = sorted(list({a["modelo"] for a in todos_arquivos_info if a["modelo"]}))
-modelo_selecionado = st.sidebar.selectbox("Filtrar por Modelo:", ["Todos"] + modelos_disponiveis)
+modelos_disponiveis = sorted({a["modelo"] for a in todos_arquivos_info if a["modelo"]})
+modelo_selecionado = st.sidebar.selectbox(
+    "Filtrar por Modelo:",
+    ["Todos"] + modelos_disponiveis
+)
 
 datas_disponiveis = sorted(
-    list({a["data"] for a in todos_arquivos_info if a["data"]}),
-    reverse=True
+    {a["data"] for a in todos_arquivos_info if a["data"]},
+    reverse=True,
 )
 data_selecionada = st.sidebar.date_input(
     "Filtrar por Data:",
@@ -93,9 +106,13 @@ data_selecionada = st.sidebar.date_input(
 # Aplicar filtros
 arquivos_filtrados = todos_arquivos_info
 if modelo_selecionado != "Todos":
-    arquivos_filtrados = [a for a in arquivos_filtrados if a["modelo"] == modelo_selecionado]
+    arquivos_filtrados = [
+        a for a in arquivos_filtrados if a["modelo"] == modelo_selecionado
+    ]
 if data_selecionada:
-    arquivos_filtrados = [a for a in arquivos_filtrados if a["data"] == data_selecionada]
+    arquivos_filtrados = [
+        a for a in arquivos_filtrados if a["data"] == data_selecionada
+    ]
 
 # Ordenar por data e hora (mais recente primeiro)
 arquivos_filtrados = sorted(
@@ -113,8 +130,8 @@ if not arquivos_filtrados:
     st.info("Nenhum histórico encontrado com os filtros selecionados.")
     st.stop()
 
-# --- Função para gerar PDF a partir de um DataFrame de dados ---
-def criar_pdf_dados(df, titulo, info_cabecalho):
+# --- Função para gerar PDF a partir do DataFrame de dados ---
+def criar_pdf_dados(df_dados, titulo, info_cabecalho):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
@@ -125,18 +142,22 @@ def criar_pdf_dados(df, titulo, info_cabecalho):
     story.append(Spacer(1, 12))
 
     story.append(Paragraph("<b>Dados da Operação:</b>", styles["h2"]))
-    dados_data = [list(df.columns)] + df.values.tolist()
-    tabela = Table(dados_data)
-    tabela.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
-    ]))
-    story.append(tabela)
+    dados_data = [list(df_dados.columns)] + df_dados.values.tolist()
+    dados_table = Table(dados_data)
+    dados_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ]
+        )
+    )
+    story.append(dados_table)
 
     doc.build(story)
     buffer.seek(0)
@@ -154,13 +175,13 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
     with st.expander(titulo_expander):
         try:
-            # Lê o CSV
+            # Lê o CSV que veio da IHM
             df_dados = pd.read_csv(arquivo["caminho"])
 
             st.subheader("Dados da Operação")
             st.dataframe(df_dados, use_container_width=True)
 
-            # --- Exportar para Excel (convertendo o CSV para XLSX) ---
+            # --- Exportar para Excel (conversão CSV -> XLSX) ---
             output_excel = BytesIO()
             with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
                 df_dados.to_excel(writer, sheet_name="Dados", index=False)
@@ -171,15 +192,18 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 file_name=(
                     f"historico_{arquivo['modelo']}_"
                     f"{arquivo['data'].strftime('%Y%m%d') if arquivo['data'] else 'semdata'}_"
-                    f"{arquivo['hora'].replace(':', '')}.xlsx"
+                    f"{(arquivo['hora'] or '').replace(':', '')}.xlsx"
                 ),
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"excel_download_{i}"
+                key=f"excel_download_{i}",
             )
 
             # --- Exportar para PDF ---
             titulo_pdf = f"Histórico FromTherm - Modelo: {arquivo['modelo'] or 'N/D'}"
-            info_cabecalho = f"Data: {data_str} - Hora: {arquivo['hora'] or '-'} - Operação: {arquivo['operacao'] or '-'}"
+            info_cabecalho = (
+                f"Data: {data_str} - Hora: {arquivo['hora'] or '-'} - "
+                f"Operação: {arquivo['operacao'] or '-'}"
+            )
             pdf_buffer = criar_pdf_dados(df_dados, titulo_pdf, info_cabecalho)
 
             st.download_button(
@@ -192,4 +216,4 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
         except Exception as e:
             st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
-            st.info("Verifique se o arquivo CSV está no formato correto e separado por vírgulas.")
+            st.info("Verifique se o arquivo CSV está no formato correto (separado por vírgulas).")
