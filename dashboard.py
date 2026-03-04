@@ -18,7 +18,7 @@ names = ["Operador FromTherm"]
 usernames = ["operador"]
 passwords = ["123456"] # Senha simples para demonstração. Em produção, use hashes!
 
-hashed_passwords = stauth.Hasher(passwords=passwords).generate()
+hashed_passwords = stauth.Hasher(passwords).generate()
 
 authenticator = stauth.Authenticate(names, usernames, hashed_passwords,
     "fromtherm_dashboard_cookie", "abcdef", cookie_expiry_days=30)
@@ -209,3 +209,4 @@ else:
                 st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
                 st.info("Verifique se o arquivo Excel possui as abas 'Informações' e 'Dados' e se está no formato correto.")
              Corrigir TypeError no stauth.Hasher
+Reverter correção do Hasher para compatibilidade com versão antiga do stauth
