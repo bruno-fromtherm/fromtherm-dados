@@ -1,8 +1,0 @@
-streamlit
-   pandas
-   streamlit-autorefresh
-   streamlit-authenticator
-   reportlab
-   requests
-   PyYAML
-   xlsxwriter
