@@ -155,14 +155,6 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         fontSize=12,
         spaceAfter=8,
     )
-    normal_left_bold = ParagraphStyle(
-        name="NormalLeftBold",
-        parent=styles["Normal"],
-        alignment=0,
-        fontSize=10,
-        leading=14, # Espaçamento entre linhas
-        fontName="Helvetica-Bold"
-    )
     normal_center = ParagraphStyle(
         name="NormalCenter",
         parent=styles["Normal"],
@@ -182,12 +174,16 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     modelo_str = meta["modelo"] or "N/D"
     linha_str = meta["linha"] or "N/D"
 
-    # Bloco de informações no formato solicitado (linhas separadas)
-    story.append(Paragraph(f"<b>Data:</b> {data_str}", normal_left_bold))
-    story.append(Paragraph(f"<b>Hora:</b> {hora_str}", normal_left_bold))
-    story.append(Paragraph(f"<b>Operação:</b> {operacao_str}", normal_left_bold))
-    story.append(Paragraph(f"<b>Modelo:</b> {modelo_str}", normal_left_bold))
-    story.append(Paragraph(f"<b>Linha:</b> {linha_str}", normal_left_bold))
+    # Bloco de informações no formato solicitado
+    info_lines = [
+        f"Data {data_str}",
+        f"Hora {hora_str}",
+        f"Operação {operacao_str}",
+        f"Modelo {modelo_str}",
+        f"Linha {linha_str}",
+    ]
+    for line in info_lines:
+        story.append(Paragraph(line, styles["Normal"]))
     story.append(Spacer(1, 10))
 
     # Título da seção de dados
@@ -205,7 +201,7 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     base = total_width / num_cols
     col_widths = [base] * num_cols
 
-    azul_cabecalho = colors.HexColor("#004A99")  # azul mais corporativo
+    azul_cabecalho = colors.HexColor("#004A99")  # azul corporativo
 
     dados_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     dados_table.setStyle(
@@ -259,6 +255,23 @@ for i, arquivo in enumerate(arquivos_filtrados):
             # Lê o CSV que veio da IHM
             df_dados = pd.read_csv(arquivo["caminho"])
 
+            # FORÇA NOMES DE COLUNA BONITOS E SEPARADOS
+            df_dados.columns = [
+                "Date",
+                "Time",
+                "Ambiente",
+                "Entrada",
+                "Saída",
+                "ΔT",
+                "Tensão",
+                "Corrente",
+                "kcal/h",
+                "Vazão",
+                "kW Aquecimento",
+                "kW Consumo",
+                "COP",
+            ]
+
             st.subheader("Dados da Operação")
             st.dataframe(df_dados, use_container_width=True)
 
@@ -277,15 +290,15 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 header_info_label = workbook.add_format(
                     {
                         "bold": True,
-                        "bg_color": "#D9E3F0", # Azul claro para o fundo do label
+                        "bg_color": "#D9E3F0",
                         "border": 1,
-                        "align": "left", # Alinhado à esquerda
+                        "align": "left",
                     }
                 )
                 header_info_value = workbook.add_format(
                     {
                         "border": 1,
-                        "align": "left", # Alinhado à esquerda
+                        "align": "left",
                     }
                 )
                 header_data_format = workbook.add_format(
@@ -301,18 +314,17 @@ for i, arquivo in enumerate(arquivos_filtrados):
                     {
                         "border": 1,
                         "align": "center",
-                        "bg_color": "#F7FBFF", # Fundo branco azulado
+                        "bg_color": "#F7FBFF",
                     }
                 )
 
                 # Título mesclado na primeira linha
                 num_cols = len(df_dados.columns)
-                # Garante que a mesclagem abranja pelo menos 10 colunas para o título
                 merge_cols = max(num_cols, 10)
                 last_col_letter = ""
                 idx_temp = merge_cols - 1
                 while idx_temp >= 0:
-                    last_col_letter = chr(ord('A') + (idx_temp % 26)) + last_col_letter
+                    last_col_letter = chr(ord("A") + (idx_temp % 26)) + last_col_letter
                     idx_temp = idx_temp // 26 - 1
 
                 worksheet.merge_range(
@@ -328,22 +340,16 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 modelo_excel = arquivo["modelo"] or ""
                 linha_excel = arquivo["linha"] or ""
 
-                # Linha 3 a 7 com texto na forma:
-                # Data 03/03/2026
-                # Hora 21:40
-                # Operação OP1234
-                # Modelo FT185
-                # Linha L1
                 info_labels = ["Data", "Hora", "Operação", "Modelo", "Linha"]
                 info_values = [data_excel, hora_excel, oper_excel, modelo_excel, linha_excel]
 
                 for idx, (label, value) in enumerate(zip(info_labels, info_values)):
-                    row = 2 + idx  # começando na linha 3 (índice 2)
+                    row = 2 + idx  # começando na linha 3
                     worksheet.write(row, 0, label, header_info_label)
                     worksheet.write(row, 1, value, header_info_value)
-                    # Ajusta a largura das colunas A e B para caber o texto
-                    worksheet.set_column(0, 0, 15) # Largura para o label
-                    worksheet.set_column(1, 1, 20) # Largura para o valor
+
+                worksheet.set_column(0, 0, 15)
+                worksheet.set_column(1, 1, 20)
 
                 # Cabeçalho dos dados (linha 9)
                 header_row = 8
@@ -353,11 +359,16 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 # Dados (a partir da linha 10)
                 for row in range(len(df_dados)):
                     for col in range(len(df_dados.columns)):
-                        worksheet.write(row + header_row + 1, col, df_dados.iloc[row, col], cell_data_format)
+                        worksheet.write(
+                            row + header_row + 1,
+                            col,
+                            df_dados.iloc[row, col],
+                            cell_data_format,
+                        )
 
                 # Ajustar largura das colunas de dados
-                for col in range(len(df_dados.columns)):
-                    worksheet.set_column(col, col, 12) # Largura padrão para dados
+                for col in range(len    df_dados.columns)):
+                    worksheet.set_column(col, col, 12)
 
             output_excel.seek(0)
             st.download_button(
