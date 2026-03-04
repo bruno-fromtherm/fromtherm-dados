@@ -1,12 +1,11 @@
 import streamlit as st
-import streamlit as st
 import pandas as pd
 import os
 import glob
 from datetime import datetime
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from io import BytesIO
 
@@ -23,6 +22,7 @@ st.title("Máquina de Teste Fromtherm")
 
 # --- Pasta onde ficam os arquivos de histórico ---
 DADOS_DIR = "dados"  # pasta 'dados' no mesmo nível do dashboard.py
+
 
 # --- Função para listar arquivos CSV localmente ---
 @st.cache_data(ttl=3600)
@@ -59,7 +59,6 @@ def listar_arquivos_csv():
                 data = datetime.strptime(data_str, "%Y%m%d").date()
                 hora = f"{hora_str[:2]}:{hora_str[2:]}"
         except Exception:
-            # Se o nome não seguir o padrão, apenas ignora os detalhes
             pass
 
         info_arquivos.append(
@@ -75,6 +74,7 @@ def listar_arquivos_csv():
         )
 
     return info_arquivos
+
 
 # --- Carregar lista de arquivos ---
 todos_arquivos_info = listar_arquivos_csv()
@@ -107,13 +107,9 @@ data_selecionada = st.sidebar.date_input(
 # Aplicar filtros
 arquivos_filtrados = todos_arquivos_info
 if modelo_selecionado != "Todos":
-    arquivos_filtrados = [
-        a for a in arquivos_filtrados if a["modelo"] == modelo_selecionado
-    ]
+    arquivos_filtrados = [a for a in arquivos_filtrados if a["modelo"] == modelo_selecionado]
 if data_selecionada:
-    arquivos_filtrados = [
-        a for a in arquivos_filtrados if a["data"] == data_selecionada
-    ]
+    arquivos_filtrados = [a for a in arquivos_filtrados if a["data"] == data_selecionada]
 
 # Ordenar por data e hora (mais recente primeiro)
 arquivos_filtrados = sorted(
@@ -131,69 +127,119 @@ if not arquivos_filtrados:
     st.info("Nenhum histórico encontrado com os filtros selecionados.")
     st.stop()
 
-# --- Função para gerar PDF a partir do DataFrame de dados ---
-def criar_pdf_com_cabecalho(df_dados, arquivo_info):
+
+# --- Função para gerar PDF A4 bonito e organizado ---
+def criar_pdf_a4(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=25,
+        rightMargin=25,
+        topMargin=30,
+        bottomMargin=30,
+    )
+
     styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        name="TitleCenter",
+        parent=styles["Title"],
+        alignment=1,  # centralizado
+        fontSize=16,
+        spaceAfter=12,
+    )
+    subtitle_style = ParagraphStyle(
+        name="SubTitle",
+        parent=styles["Heading2"],
+        alignment=0,
+        fontSize=11,
+        spaceAfter=6,
+    )
+
     story = []
 
-    # Informações do cabeçalho
-    data_str = arquivo_info["data"].strftime("%d/%m/%Y") if arquivo_info["data"] else "N/D"
-    hora_str = arquivo_info["hora"] or "N/D"
-    operacao_str = arquivo_info["operacao"] or "N/D"
-    modelo_str = arquivo_info["modelo"] or "N/D"
-    linha_str = arquivo_info["linha"] or "N/D"
+    # Cabeçalho
+    story.append(Paragraph("Planilha Teste de Máquinas Fromtherm", title_style))
+    story.append(Spacer(1, 8))
 
-    # Título principal do PDF
-    story.append(Paragraph("<b>Planilha Teste de Máquinas Fromtherm</b>", styles["h1"]))
-    story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
+    data_str = meta["data"].strftime("%d/%m/%Y") if meta["data"] else "N/D"
+    hora_str = meta["hora"] or "N/D"
+    operacao_str = meta["operacao"] or "N/D"
+    modelo_str = meta["modelo"] or "N/D"
+    linha_str = meta["linha"] or "N/D"
 
-    # Tabela de informações (replicando o formato do seu exemplo)
-    info_header_data = [
-        ["Data", "Hora", "Operação", "Modelo", "Linha"],
-        [data_str, hora_str, operacao_str, modelo_str, linha_str]
+    # Tabela de informações em duas linhas (mais limpo)
+    info_data = [
+        ["Data", data_str, "Hora", hora_str],
+        ["Operação", operacao_str, "Modelo", modelo_str],
+        ["Linha", linha_str, "", ""],
     ]
-    info_table = Table(info_header_data, colWidths=[1.5*2.54, 1.5*2.54, 2*2.54, 1.5*2.54, 1.5*2.54]) # Larguras em cm
-    info_table.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-    ]))
+    info_table = Table(info_data, colWidths=[60, 120, 60, 120])
+    info_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]
+        )
+    )
     story.append(info_table)
-    story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
+    story.append(Spacer(1, 12))
 
-    # Título para os dados da operação
-    story.append(Paragraph("<b>Dados da Operação:</b>", styles["h2"]))
-    story.append(Spacer(1, 0.2 * 2.54 * 0.2)) # 0.2 cm
+    # Título da tabela de dados
+    story.append(Paragraph("Dados da Operação:", subtitle_style))
+    story.append(Spacer(1, 6))
 
-    # Tabela de dados
-    dados_data = [list(df_dados.columns)] + df_dados.values.tolist()
-    dados_table = Table(dados_data)
+    # Tabela dos dados com ajuste de largura de coluna
+    cols = list(df_dados.columns)
+    data_rows = df_dados.values.tolist()
+
+    # Cabeçalho + linhas
+    table_data = [cols] + data_rows
+
+    # Definir larguras aproximadas em pontos (A4 ~ 540 pts de largura útil)
+    # Ajuste mais largura para colunas de texto curto, menos para numéricas
+    num_cols = len(cols)
+    if num_cols <= 8:
+        col_widths = [65] + [60] * (num_cols - 1)
+    else:
+        # Distribuição proporcional
+        base = 520 / num_cols
+        col_widths = [base] * num_cols
+
+    dados_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     dados_table.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("FONTSIZE", (0, 0), (-1, 0), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+                ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
+                ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 1), (-1, -1), 7),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
             ]
         )
     )
     story.append(dados_table)
-    story.append(Spacer(1, 0.2 * 2.54 * 0.5)) # 0.5 cm
+    story.append(Spacer(1, 12))
 
-    # Rodapé
-    story.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}", styles["Normal"]))
+    # Rodapé simples
+    rodape = f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}"
+    story.append(Paragraph(rodape, styles["Normal"]))
 
     doc.build(story)
     buffer.seek(0)
     return buffer
+
 
 # --- Listar cada arquivo filtrado ---
 for i, arquivo in enumerate(arquivos_filtrados):
@@ -207,44 +253,79 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
     with st.expander(titulo_expander):
         try:
-            # Lê o CSV
+            # Lê o CSV que veio da IHM
             df_dados = pd.read_csv(arquivo["caminho"])
 
             st.subheader("Dados da Operação")
             st.dataframe(df_dados, use_container_width=True)
 
-            # --- Exportar para Excel (convertendo o CSV para XLSX com cabeçalho) ---
+            # --- Exportar para Excel (organizado) ---
             output_excel = BytesIO()
             with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-                # Cria um DataFrame para as informações do cabeçalho
-                info_df = pd.DataFrame({
-                    "Data": [arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else "N/D"],
-                    "Hora": [arquivo["hora"] or "N/D"],
-                    "Operação": [arquivo["operacao"] or "N/D"],
-                    "Modelo": [arquivo["modelo"] or "N/D"],
-                    "Linha": [arquivo["linha"] or "N/D"]
-                })
+                workbook = writer.book
+                worksheet = workbook.add_worksheet("Dados")
+                writer.sheets["Dados"] = worksheet
 
-                # Escreve o título na primeira linha
-                worksheet = writer.book.add_worksheet("Dados")
-                worksheet.write(0, 0, "Planilha Teste de Máquinas Fromtherm", writer.book.add_format({'bold': True, 'font_size': 14}))
+                # Formatos
+                title_format = workbook.add_format(
+                    {"bold": True, "font_size": 14}
+                )
+                header_format = workbook.add_format(
+                    {
+                        "bold": True,
+                        "bg_color": "#D9D9D9",
+                        "border": 1,
+                        "align": "center",
+                    }
+                )
+                cell_format = workbook.add_format(
+                    {
+                        "border": 1,
+                        "align": "center",
+                    }
+                )
 
-                # Escreve as informações do cabeçalho a partir da linha 2
-                info_df.to_excel(writer, sheet_name="Dados", startrow=2, index=False, header=True)
+                # Título
+                worksheet.merge_range("A1:M1", "Planilha Teste de Máquinas Fromtherm", title_format)
 
-                # Escreve os dados da operação a partir da linha 5 (ajustar conforme necessidade)
-                df_dados.to_excel(writer, sheet_name="Dados", startrow=5, index=False, header=True)
+                # Infos (Data, Hora, Operação, Modelo, Linha)
+                data_excel = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else ""
+                hora_excel = arquivo["hora"] or ""
+                oper_excel = arquivo["operacao"] or ""
+                modelo_excel = arquivo["modelo"] or ""
+                linha_excel = arquivo["linha"] or ""
 
-                # Adiciona o rodapé
-                worksheet.write(df_dados.shape[0] + 7, 0, f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}")
+                worksheet.write("A3", "Data", header_format)
+                worksheet.write("B3", data_excel, cell_format)
+                worksheet.write("C3", "Hora", header_format)
+                worksheet.write("D3", hora_excel, cell_format)
+                worksheet.write("E3", "Operação", header_format)
+                worksheet.write("F3", oper_excel, cell_format)
+                worksheet.write("G3", "Modelo", header_format)
+                worksheet.write("H3", modelo_excel, cell_format)
+                worksheet.write("I3", "Linha", header_format)
+                worksheet.write("J3", linha_excel, cell_format)
+
+                # Cabeçalho dos dados na linha 5
+                for col, col_name in enumerate(df_dados.columns):
+                    worksheet.write(4, col, col_name, header_format)
+
+                # Dados a partir da linha 6
+                for row in range(len(df_dados)):
+                    for col in range(len(df_dados.columns)):
+                        worksheet.write(row + 5, col, df_dados.iloc[row, col], cell_format)
+
+                # Ajustar largura das colunas (mais bonito)
+                for col in range(len(df_dados.columns)):
+                    worksheet.set_column(col, col, 12)
 
             output_excel.seek(0)
             st.download_button(
                 label="Exportar para Excel",
                 data=output_excel,
                 file_name=(
-                    f"Maquina_{arquivo['modelo'] or 'N/D'}_"
-                    f"{arquivo['operacao'] or 'N/D'}_"
+                    f"Maquina_{arquivo['modelo'] or 'N_D'}_"
+                    f"{arquivo['operacao'] or 'OP'}_"
                     f"{arquivo['data'].strftime('%d%m%Y') if arquivo['data'] else 'semdata'}_"
                     f"{(arquivo['hora'] or '').replace(':', '')}.xlsx"
                 ),
@@ -252,15 +333,14 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 key=f"excel_download_{i}",
             )
 
-            # --- Exportar para PDF ---
-            pdf_buffer = criar_pdf_com_cabecalho(df_dados, arquivo)
-
+            # --- Exportar para PDF (A4, ajustado) ---
+            pdf_buffer = criar_pdf_a4(df_dados, arquivo)
             st.download_button(
                 label="Exportar para PDF",
                 data=pdf_buffer,
                 file_name=(
-                    f"Maquina_{arquivo['modelo'] or 'N/D'}_"
-                    f"{arquivo['operacao'] or 'N/D'}_"
+                    f"Maquina_{arquivo['modelo'] or 'N_D'}_"
+                    f"{arquivo['operacao'] or 'OP'}_"
                     f"{arquivo['data'].strftime('%d%m%Y') if arquivo['data'] else 'semdata'}_"
                     f"{(arquivo['hora'] or '').replace(':', '')}.pdf"
                 ),
