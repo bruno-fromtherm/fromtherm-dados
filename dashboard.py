@@ -155,6 +155,14 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         fontSize=12,
         spaceAfter=8,
     )
+    normal_left_bold = ParagraphStyle(
+        name="NormalLeftBold",
+        parent=styles["Normal"],
+        alignment=0,
+        fontSize=10,
+        leading=14, # Espaçamento entre linhas
+        fontName="Helvetica-Bold"
+    )
     normal_center = ParagraphStyle(
         name="NormalCenter",
         parent=styles["Normal"],
@@ -174,16 +182,12 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     modelo_str = meta["modelo"] or "N/D"
     linha_str = meta["linha"] or "N/D"
 
-    # Bloco de informações no formato solicitado
-    info_lines = [
-        f"Data {data_str}",
-        f"Hora {hora_str}",
-        f"Operação {operacao_str}",
-        f"Modelo {modelo_str}",
-        f"Linha {linha_str}",
-    ]
-    for line in info_lines:
-        story.append(Paragraph(line, styles["Normal"]))
+    # Bloco de informações no formato solicitado (linhas separadas)
+    story.append(Paragraph(f"<b>Data:</b> {data_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Hora:</b> {hora_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Operação:</b> {operacao_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Modelo:</b> {modelo_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Linha:</b> {linha_str}", normal_left_bold))
     story.append(Spacer(1, 10))
 
     # Título da seção de dados
@@ -273,15 +277,15 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 header_info_label = workbook.add_format(
                     {
                         "bold": True,
-                        "bg_color": "#D9E3F0",
+                        "bg_color": "#D9E3F0", # Azul claro para o fundo do label
                         "border": 1,
-                        "align": "center",
+                        "align": "left", # Alinhado à esquerda
                     }
                 )
                 header_info_value = workbook.add_format(
                     {
                         "border": 1,
-                        "align": "center",
+                        "align": "left", # Alinhado à esquerda
                     }
                 )
                 header_data_format = workbook.add_format(
@@ -297,23 +301,20 @@ for i, arquivo in enumerate(arquivos_filtrados):
                     {
                         "border": 1,
                         "align": "center",
-                        "bg_color": "#F7FBFF",
+                        "bg_color": "#F7FBFF", # Fundo branco azulado
                     }
                 )
 
                 # Título mesclado na primeira linha
                 num_cols = len(df_dados.columns)
-                last_col_idx = num_cols - 1
-                # Converter índice numérico de coluna em letra (A, B, C, ... até Z, depois AA, AB, etc.)
-                def col_letter(idx: int) -> str:
-                    result = ""
-                    idx_temp = idx
-                    while idx_temp >= 0:
-                        result = chr(ord("A") + (idx_temp % 26)) + result
-                        idx_temp = idx_temp // 26 - 1
-                    return result
+                # Garante que a mesclagem abranja pelo menos 10 colunas para o título
+                merge_cols = max(num_cols, 10)
+                last_col_letter = ""
+                idx_temp = merge_cols - 1
+                while idx_temp >= 0:
+                    last_col_letter = chr(ord('A') + (idx_temp % 26)) + last_col_letter
+                    idx_temp = idx_temp // 26 - 1
 
-                last_col_letter = col_letter(last_col_idx)
                 worksheet.merge_range(
                     f"A1:{last_col_letter}1",
                     "Planilha Teste de Máquinas Fromtherm",
@@ -340,6 +341,9 @@ for i, arquivo in enumerate(arquivos_filtrados):
                     row = 2 + idx  # começando na linha 3 (índice 2)
                     worksheet.write(row, 0, label, header_info_label)
                     worksheet.write(row, 1, value, header_info_value)
+                    # Ajusta a largura das colunas A e B para caber o texto
+                    worksheet.set_column(0, 0, 15) # Largura para o label
+                    worksheet.set_column(1, 1, 20) # Largura para o valor
 
                 # Cabeçalho dos dados (linha 9)
                 header_row = 8
@@ -351,9 +355,9 @@ for i, arquivo in enumerate(arquivos_filtrados):
                     for col in range(len(df_dados.columns)):
                         worksheet.write(row + header_row + 1, col, df_dados.iloc[row, col], cell_data_format)
 
-                # Ajustar largura das colunas
+                # Ajustar largura das colunas de dados
                 for col in range(len(df_dados.columns)):
-                    worksheet.set_column(col, col, 12)
+                    worksheet.set_column(col, col, 12) # Largura padrão para dados
 
             output_excel.seek(0)
             st.download_button(
