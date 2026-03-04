@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit as st
 import pandas as pd
 import os
 import glob
@@ -155,6 +156,14 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         fontSize=12,
         spaceAfter=8,
     )
+    normal_left_bold = ParagraphStyle(
+        name="NormalLeftBold",
+        parent=styles["Normal"],
+        alignment=0,
+        fontSize=10,
+        leading=14, # Espaçamento entre linhas
+        fontName="Helvetica-Bold"
+    )
     normal_center = ParagraphStyle(
         name="NormalCenter",
         parent=styles["Normal"],
@@ -174,16 +183,12 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     modelo_str = meta["modelo"] or "N/D"
     linha_str = meta["linha"] or "N/D"
 
-    # Bloco de informações no formato solicitado
-    info_lines = [
-        f"Data {data_str}",
-        f"Hora {hora_str}",
-        f"Operação {operacao_str}",
-        f"Modelo {modelo_str}",
-        f"Linha {linha_str}",
-    ]
-    for line in info_lines:
-        story.append(Paragraph(line, styles["Normal"]))
+    # Bloco de informações no formato solicitado (linhas separadas)
+    story.append(Paragraph(f"<b>Data:</b> {data_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Hora:</b> {hora_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Operação:</b> {operacao_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Modelo:</b> {modelo_str}", normal_left_bold))
+    story.append(Paragraph(f"<b>Linha:</b> {linha_str}", normal_left_bold))
     story.append(Spacer(1, 10))
 
     # Título da seção de dados
@@ -191,15 +196,34 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     story.append(Spacer(1, 6))
 
     # Preparar dados da tabela
-    cols = list(df_dados.columns)
+    cols = list(df_dados.columns) # AGORA DF_DADOS JÁ VEM COM NOMES CORRETOS
     data_rows = df_dados.values.tolist()
     table_data = [cols] + data_rows
 
     # Largura de tabela para ocupar bem a página paisagem
     num_cols = len(cols)
     total_width = 780  # largura útil aproximada
-    base = total_width / num_cols
-    col_widths = [base] * num_cols
+
+    # Ajuste de largura de coluna mais inteligente para caber os nomes longos
+    col_widths = []
+    for col_name in cols:
+        if "kW" in col_name: # Colunas de kW são mais longas
+            col_widths.append(90) # Largura maior para kW Aquecimento/Consumo
+        elif "ambiente" in col_name or "corrente" in col_name:
+            col_widths.append(70)
+        elif "Date" in col_name:
+            col_widths.append(60)
+        elif "Time" in col_name:
+            col_widths.append(50)
+        else:
+            col_widths.append(60) # Largura padrão para outras colunas
+
+    # Ajustar para que a soma das larguras seja igual à total_width
+    current_total_width = sum(col_widths)
+    if current_total_width != total_width:
+        scale_factor = total_width / current_total_width
+        col_widths = [w * scale_factor for w in col_widths]
+
 
     azul_cabecalho = colors.HexColor("#004A99")  # azul corporativo
 
@@ -320,6 +344,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
                 # Título mesclado na primeira linha
                 num_cols = len(df_dados.columns)
+                # Garante que a mesclagem abranja pelo menos 10 colunas para o título
                 merge_cols = max(num_cols, 10)
                 last_col_letter = ""
                 idx_temp = merge_cols - 1
@@ -366,9 +391,18 @@ for i, arquivo in enumerate(arquivos_filtrados):
                             cell_data_format,
                         )
 
-                # Ajustar largura das colunas de dados
-                for col in range(len    df_dados.columns)):
-                    worksheet.set_column(col, col, 12)
+                # Ajustar largura das colunas de dados no Excel
+                for col_idx, col_name in enumerate(df_dados.columns):
+                    if "kW" in col_name:
+                        worksheet.set_column(col_idx, col_idx, 15) # Mais largo para kW
+                    elif "Ambiente" in col_name or "Corrente" in col_name:
+                        worksheet.set_column(col_idx, col_idx, 10)
+                    elif "Date" in col_name:
+                        worksheet.set_column(col_idx, col_idx, 10)
+                    elif "Time" in col_name:
+                        worksheet.set_column(col_idx, col_idx, 8)
+                    else:
+                        worksheet.set_column(col_idx, col_idx, 12) # Padrão
 
             output_excel.seek(0)
             st.download_button(
@@ -385,7 +419,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
             )
 
             # --- Exportar para PDF (A4 paisagem, azul, profissional) ---
-            pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
+            pdf_buffer = criar_pdf_paisagem(df_dados, arquivo) # df_dados JÁ RENOMEADO
             st.download_button(
                 label="Exportar para PDF",
                 data=pdf_buffer,
