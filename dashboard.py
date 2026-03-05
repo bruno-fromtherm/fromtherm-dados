@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit as st
 import pandas as pd
 import os
 import glob
@@ -9,6 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from io import BytesIO
+import time # Importar a biblioteca time
 
 # --- Configuração básica da página ---
 st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
@@ -26,7 +26,7 @@ DADOS_DIR = "dados"  # pasta 'dados' no mesmo nível do dashboard.py
 
 
 # --- Função para listar arquivos CSV localmente ---
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=30) # Reduzindo o TTL para 30 segundos para o auto-refresh funcionar melhor
 def listar_arquivos_csv():
     """
     Lista todos os arquivos .csv na pasta 'dados'
@@ -83,7 +83,13 @@ todos_arquivos_info = listar_arquivos_csv()
 if not todos_arquivos_info:
     st.warning("Nenhum arquivo .csv de histórico encontrado na pasta 'dados'.")
     st.info("Coloque os arquivos .csv de histórico dentro da pasta 'dados' do repositório.")
-    st.stop()
+    # Adiciona um placeholder para o auto-refresh mesmo sem arquivos
+    placeholder = st.empty()
+    with placeholder.container():
+        st.markdown(f"Última atualização: {datetime.now().strftime('%H:%M:%S')}")
+    time.sleep(30) # Espera 30 segundos antes de tentar novamente
+    st.rerun() # Força o rerun do script
+    st.stop() # Para a execução aqui se não houver arquivos
 
 # --- Filtros na barra lateral ---
 st.sidebar.header("Filtros")
@@ -126,7 +132,13 @@ st.subheader("Históricos Disponíveis")
 
 if not arquivos_filtrados:
     st.info("Nenhum histórico encontrado com os filtros selecionados.")
-    st.stop()
+    # Adiciona um placeholder para o auto-refresh mesmo sem arquivos filtrados
+    placeholder = st.empty()
+    with placeholder.container():
+        st.markdown(f"Última atualização: {datetime.now().strftime('%H:%M:%S')}")
+    time.sleep(30) # Espera 30 segundos antes de tentar novamente
+    st.rerun() # Força o rerun do script
+    st.stop() # Para a execução aqui se não houver arquivos filtrados
 
 
 # --- Função para gerar PDF A4 paisagem, com azul no cabeçalho ---
@@ -196,7 +208,7 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     story.append(Spacer(1, 6))
 
     # Preparar dados da tabela
-    cols = list(df_dados.columns) # AGORA DF_DADOS JÁ VEM COM NOMES CORRETOS
+    cols = list(df_dados.columns)
     data_rows = df_dados.values.tolist()
     table_data = [cols] + data_rows
 
@@ -209,7 +221,7 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
     for col_name in cols:
         if "kW" in col_name: # Colunas de kW são mais longas
             col_widths.append(90) # Largura maior para kW Aquecimento/Consumo
-        elif "ambiente" in col_name or "corrente" in col_name:
+        elif "Ambiente" in col_name or "Corrente" in col_name:
             col_widths.append(70)
         elif "Date" in col_name:
             col_widths.append(60)
@@ -344,7 +356,6 @@ for i, arquivo in enumerate(arquivos_filtrados):
 
                 # Título mesclado na primeira linha
                 num_cols = len(df_dados.columns)
-                # Garante que a mesclagem abranja pelo menos 10 colunas para o título
                 merge_cols = max(num_cols, 10)
                 last_col_letter = ""
                 idx_temp = merge_cols - 1
@@ -419,7 +430,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
             )
 
             # --- Exportar para PDF (A4 paisagem, azul, profissional) ---
-            pdf_buffer = criar_pdf_paisagem(df_dados, arquivo) # df_dados JÁ RENOMEADO
+            pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
             st.download_button(
                 label="Exportar para PDF",
                 data=pdf_buffer,
@@ -436,3 +447,10 @@ for i, arquivo in enumerate(arquivos_filtrados):
         except Exception as e:
             st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
             st.info("Verifique se o arquivo CSV está no formato correto (separado por vírgulas).")
+
+# --- Adiciona o auto-refresh no final do script ---
+placeholder = st.empty()
+with placeholder.container():
+    st.markdown(f"Última atualização: {datetime.now().strftime('%H:%M:%S')}")
+time.sleep(10) # Espera 10 segundos
+st.rerun() # Força o rerun do script
