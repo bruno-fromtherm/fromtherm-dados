@@ -6,4 +6,4 @@ reportlab
 requests
 PyYAML
 xlsxwriter
-openpyxl  # <--- Adicione esta linha
+openpyxl
