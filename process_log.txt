@@ -240,3 +240,16 @@ Changes not staged for commit:
 no changes added to commit (use "git add" and/or "git commit -a")
 
 [2026-03-06 15:07:39] Falha no git commit.
+[2026-03-06 15:19:01] Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...
+[2026-03-06 15:19:02] Git stdout: Already up to date.
+[2026-03-06 15:19:02] Git stderr: From https://github.com/bruno-fromtherm/fromtherm-dados
+ * branch            main       -> FETCH_HEAD
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_1848_OP555_195HH.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_1848_OP555_195HH.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2143_OP0000_FT100H.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2143_OP0000_FT100H.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2257_OP7777_FT140KK.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2257_OP7777_FT140KK.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2351_1111FTRY.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2351_1111FTRY.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0718_OP999_FTI378L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0826_OP44444_FTI500BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0826_OP44444_FTI500BR.csv
+[2026-03-06 15:19:02] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1442_OP3333_FTI688LBR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_1442_OP3333_FTI688LBR.csv
+[2026-03-06 15:19:02] Arquivo consolidado salvo em: C:\fromtherm-dados\dados\ihm_historico_L1.csv (linhas: 55)
