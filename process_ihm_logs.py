@@ -1,6 +1,7 @@
 import os
 import subprocess
 import datetime
+import shutil
 import pandas as pd
 
 # Caminho do repositório de LOGS (aquele que você já automatizou)
@@ -16,10 +17,13 @@ IHM_LOGS_DIR = os.path.join(
 )
 
 # Caminho do repositório fromtherm-dados (onde está este script)
-DADOS_REPO = r"C:\fromtherm-dados"
+DADOS_REPO = r"C:\fromtherm-dados"  # ajuste se estiver em outro lugar
 
-# Arquivo consolidado que o Streamlit vai ler
-OUTPUT_CSV = os.path.join(DADOS_REPO, "dados", "ihm_historico_L1.csv")
+# Pasta de saída dos arquivos que o dashboard usa
+DADOS_DIR = os.path.join(DADOS_REPO, "dados")
+
+# (Opcional) arquivo consolidado - se ainda quiser manter
+OUTPUT_CSV = os.path.join(DADOS_DIR, "ihm_historico_L1.csv")
 
 
 def log(msg: str):
@@ -35,134 +39,92 @@ def run_git_command(args, cwd):
         result = subprocess.run(
             args,
             cwd=cwd,
-            check=True,
             capture_output=True,
             text=True,
-            encoding="utf-8",
+            check=True,
         )
-        if result.stdout.strip():
+        if result.stdout:
             log(f"Git stdout: {result.stdout.strip()}")
-        if result.stderr.strip():
+        if result.stderr:
             log(f"Git stderr: {result.stderr.strip()}")
         return True
     except subprocess.CalledProcessError as e:
         log(f"ERRO git ({' '.join(args)}): {e}")
         if e.stdout:
-            log(f"stdout: {e.stdout.strip()}")
+            log(f"stdout: {e.stdout}")
         if e.stderr:
-            log(f"stderr: {e.stderr.strip()}")
+            log(f"stderr: {e.stderr}")
         return False
 
 
-def load_all_ihm_logs():
+def detectar_novos_arquivos_e_copiar():
+    """
+    Copia todos os CSV da pasta de logs (fromtherm-ihm-logs)
+    para a pasta 'dados' do repo fromtherm-dados, mantendo os nomes.
+
+    Também (opcional) monta um consolidado.
+    """
     if not os.path.exists(IHM_LOGS_DIR):
-        log(f"Pasta de logs da IHM não encontrada: {IHM_LOGS_DIR}")
-        return None
+        log(f"Pasta de logs IHM não encontrada: {IHM_LOGS_DIR}")
+        return 0
 
-    all_rows = []
-    for root, _, files in os.walk(IHM_LOGS_DIR):
-        for file in files:
-            if not file.lower().endswith(".csv"):
-                continue
-            full_path = os.path.join(root, file)
-            try:
-                # Alguns arquivos podem ter a primeira linha como cabeçalho Markdown (| --- | ...)
-                # e separados por "|" - vamos tratar isso.
-                with open(full_path, "r", encoding="utf-8") as f:
-                    lines = [line.strip() for line in f.readlines() if line.strip()]
+    os.makedirs(DADOS_DIR, exist_ok=True)
 
-                if not lines:
-                    continue
+    arquivos_logs = [
+        os.path.join(IHM_LOGS_DIR, f)
+        for f in os.listdir(IHM_LOGS_DIR)
+        if f.lower().endswith(".csv")
+    ]
 
-                # Se a primeira linha começa com "|" vamos tratar como "tabela markdown"
-                if lines[0].startswith("|"):
-                    # Remove o primeiro e o último "|" e separa por "|"
-                    header = [col.strip() for col in lines[0].strip("|").split("|")]
-                    data_lines = lines[2:]  # pula linha de header e linha de "---"
+    if not arquivos_logs:
+        log("Nenhum arquivo CSV encontrado na pasta de logs IHM.")
+        return 0
 
-                    records = []
-                    for line in data_lines:
-                        if not line.startswith("|"):
-                            continue
-                        cols = [c.strip() for c in line.strip("|").split("|")]
-                        if len(cols) != len(header):
-                            continue
-                        records.append(cols)
+    linhas_total = 0
+    df_consolidados = []
 
-                    if not records:
-                        continue
+    for caminho_origem in arquivos_logs:
+        nome = os.path.basename(caminho_origem)
+        caminho_destino = os.path.join(DADOS_DIR, nome)
 
-                    df = pd.DataFrame(records, columns=header)
-                else:
-                    # fallback: tentar ler como CSV padrão separado por ";" ou ","
-                    df = pd.read_csv(full_path)
+        # Copia os arquivos com mesmo nome para a pasta 'dados'
+        shutil.copy2(caminho_origem, caminho_destino)
+        log(f"Copiado para dashboard: {caminho_origem} -> {caminho_destino}")
 
-                # Adiciona colunas de origem do arquivo (data do arquivo, nome, etc.)
-                df["arquivo_origem"] = file
-                all_rows.append(df)
-
-                log(f"Lido com sucesso: {full_path} ({len(df)} linhas)")
-
-            except Exception as e:
-                log(f"Erro ao ler {full_path}: {e}")
-
-    if not all_rows:
-        log("Nenhum dado lido dos logs da IHM.")
-        return None
-
-    full_df = pd.concat(all_rows, ignore_index=True)
-
-    # Exemplo de ajustes simples:
-    # - Combinar Date + Time em uma coluna datetime
-    if "Date" in full_df.columns and "Time" in full_df.columns:
+        # (Opcional) também monta o consolidado em memória
         try:
-            full_df["timestamp"] = pd.to_datetime(
-                full_df["Date"].str.strip() + " " + full_df["Time"].str.strip(),
-                format="%Y/%m/%d %H:%M:%S",
-                errors="coerce",
-            )
+            df_tmp = pd.read_csv(caminho_origem)
+            df_consolidados.append(df_tmp)
+            linhas_total += len(df_tmp)
         except Exception as e:
-            log(f"Erro ao converter timestamp: {e}")
+            log(f"Falha ao ler para consolidação: {caminho_origem} -> {e}")
 
-    return full_df
+    # (Opcional) salvar consolidado
+    if df_consolidados:
+        df_final = pd.concat(df_consolidados, ignore_index=True)
+        df_final.to_csv(OUTPUT_CSV, index=False)
+        log(f"Arquivo consolidado salvo em: {OUTPUT_CSV} (linhas: {len(df_final)})")
+
+    return linhas_total
 
 
 def main():
-    log("Iniciando processamento dos logs da IHM...")
+    log("Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...")
 
-    # Garante que temos a versão mais recente do repo de LOGS
-    run_git_command(["git", "pull"], cwd=IHM_LOGS_REPO)
+    # Garantir que estamos com o repositório atualizado
+    run_git_command(["git", "pull", "origin", "main"], cwd=DADOS_REPO)
 
-    df = load_all_ihm_logs()
-    if df is None or df.empty:
-        log("Nenhum dado para salvar. Fim do processamento.")
+    linhas = detectar_novos_arquivos_e_copiar()
+    if linhas == 0:
+        log("Nenhum arquivo processado/copiado. Nada a atualizar.")
         return
 
-    # Garante pasta 'dados' no repo fromtherm-dados
-    os.makedirs(os.path.join(DADOS_REPO, "dados"), exist_ok=True)
-
-    # Salva o consolidado
-    df.to_csv(OUTPUT_CSV, index=False, encoding="utf-8")
-    log(f"Arquivo consolidado salvo em: {OUTPUT_CSV} (linhas: {len(df)})")
-
-    # Agora faz git add/commit/push no fromtherm-dados
-    if not run_git_command(["git", "add", "dados/ihm_historico_L1.csv"], cwd=DADOS_REPO):
-        log("Falha no git add.")
+    # Adicionar tudo que mudou na pasta 'dados'
+    if not run_git_command(["git", "add", "dados"], cwd=DADOS_REPO):
+        log("Falha no git add (dados).")
         return
 
-    status = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=DADOS_REPO,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    ).stdout.strip()
-
-    if not status:
-        log("Sem mudanças para commit após git add.")
-        return
-
-    msg = "Atualizando dados IHM - " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    msg = f"Atualizando dados IHM para dashboard - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     if not run_git_command(["git", "commit", "-m", msg], cwd=DADOS_REPO):
         log("Falha no git commit.")
         return
