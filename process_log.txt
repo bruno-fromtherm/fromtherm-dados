@@ -170,3 +170,73 @@ hint: use 'git pull' before pushing again.
 hint: See the 'Note about fast-forwards' in 'git push --help' for details.
 
 [2026-03-06 08:08:35] Falha no git push (fromtherm-dados).
+[2026-03-06 08:22:04] Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...
+[2026-03-06 08:22:04] Git stdout: Already up to date.
+[2026-03-06 08:22:04] Git stderr: From https://github.com/bruno-fromtherm/fromtherm-dados
+ * branch            main       -> FETCH_HEAD
+[2026-03-06 08:22:04] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_1848_OP555_195HH.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_1848_OP555_195HH.csv
+[2026-03-06 08:22:04] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2143_OP0000_FT100H.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2143_OP0000_FT100H.csv
+[2026-03-06 08:22:04] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2257_OP7777_FT140KK.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2257_OP7777_FT140KK.csv
+[2026-03-06 08:22:04] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv
+[2026-03-06 08:22:04] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2351_1111FTRY.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2351_1111FTRY.csv
+[2026-03-06 08:22:04] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0718_OP999_FTI378L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+[2026-03-06 08:22:04] Arquivo consolidado salvo em: C:\fromtherm-dados\dados\ihm_historico_L1.csv (linhas: 38)
+[2026-03-06 08:22:04] ERRO git (git commit -m Atualizando dados IHM para dashboard - 2026-03-06 08:22:04): Command '['git', 'commit', '-m', 'Atualizando dados IHM para dashboard - 2026-03-06 08:22:04']' returned non-zero exit status 1.
+[2026-03-06 08:22:04] stdout: On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   process_log.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+[2026-03-06 08:22:04] Falha no git commit.
+[2026-03-06 15:07:06] Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...
+[2026-03-06 15:07:07] Git stdout: Already up to date.
+[2026-03-06 15:07:07] Git stderr: From https://github.com/bruno-fromtherm/fromtherm-dados
+ * branch            main       -> FETCH_HEAD
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_1848_OP555_195HH.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_1848_OP555_195HH.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2143_OP0000_FT100H.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2143_OP0000_FT100H.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2257_OP7777_FT140KK.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2257_OP7777_FT140KK.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2351_1111FTRY.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2351_1111FTRY.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0718_OP999_FTI378L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0826_OP44444_FTI500BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0826_OP44444_FTI500BR.csv
+[2026-03-06 15:07:07] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1442_OP3333_FTI688LBR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_1442_OP3333_FTI688LBR.csv
+[2026-03-06 15:07:07] Arquivo consolidado salvo em: C:\fromtherm-dados\dados\ihm_historico_L1.csv (linhas: 55)
+[2026-03-06 15:07:07] Git stderr: warning: in the working copy of 'dados/historico_L1_20260306_0826_OP44444_FTI500BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados/historico_L1_20260306_1442_OP3333_FTI688LBR.csv', LF will be replaced by CRLF the next time Git touches it
+[2026-03-06 15:07:07] Git stdout: [main 97d1758] Atualizando dados IHM para dashboard - 2026-03-06 15:07:07
+ 3 files changed, 36 insertions(+)
+ create mode 100644 dados/historico_L1_20260306_0826_OP44444_FTI500BR.csv
+ create mode 100644 dados/historico_L1_20260306_1442_OP3333_FTI688LBR.csv
+[2026-03-06 15:07:08] Git stderr: To https://github.com/bruno-fromtherm/fromtherm-dados.git
+   92c5a8f..97d1758  main -> main
+[2026-03-06 15:07:08] Processamento concluído e dados enviados para fromtherm-dados com sucesso.
+[2026-03-06 15:07:38] Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...
+[2026-03-06 15:07:39] Git stdout: Already up to date.
+[2026-03-06 15:07:39] Git stderr: From https://github.com/bruno-fromtherm/fromtherm-dados
+ * branch            main       -> FETCH_HEAD
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_1848_OP555_195HH.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_1848_OP555_195HH.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2143_OP0000_FT100H.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2143_OP0000_FT100H.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2257_OP7777_FT140KK.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2257_OP7777_FT140KK.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2340_OP8888_FTI240L_BR.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260305_2351_1111FTRY.csv -> C:\fromtherm-dados\dados\historico_L1_20260305_2351_1111FTRY.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0718_OP999_FTI378L_BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_0826_OP44444_FTI500BR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_0826_OP44444_FTI500BR.csv
+[2026-03-06 15:07:39] Copiado para dashboard: C:\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1442_OP3333_FTI688LBR.csv -> C:\fromtherm-dados\dados\historico_L1_20260306_1442_OP3333_FTI688LBR.csv
+[2026-03-06 15:07:39] Arquivo consolidado salvo em: C:\fromtherm-dados\dados\ihm_historico_L1.csv (linhas: 55)
+[2026-03-06 15:07:39] ERRO git (git commit -m Atualizando dados IHM para dashboard - 2026-03-06 15:07:39): Command '['git', 'commit', '-m', 'Atualizando dados IHM para dashboard - 2026-03-06 15:07:39']' returned non-zero exit status 1.
+[2026-03-06 15:07:39] stdout: On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   process_log.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+[2026-03-06 15:07:39] Falha no git commit.
