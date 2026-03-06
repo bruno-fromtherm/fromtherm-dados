@@ -30,6 +30,7 @@ def log(msg: str):
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
     print(line)
+    # Garante que o arquivo de log seja criado se não existir
     with open(os.path.join(DADOS_REPO, "process_log.txt"), "a", encoding="utf-8") as f:
         f.write(line + "\n")
 
@@ -54,6 +55,9 @@ def run_git_command(args, cwd):
             log(f"stdout: {e.stdout}")
         if e.stderr:
             log(f"stderr: {e.stderr}")
+        return False
+    except FileNotFoundError:
+        log(f"ERRO: Comando Git não encontrado. Certifique-se de que o Git está instalado e no PATH.")
         return False
 
 
@@ -111,23 +115,31 @@ def detectar_novos_arquivos_e_copiar():
 def main():
     log("Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...")
 
-    # Garantir que estamos com o repositório atualizado
-    run_git_command(["git", "pull", "origin", "main"], cwd=DADOS_REPO)
+    # Garantir que estamos com o repositório atualizado antes de copiar
+    if not run_git_command(["git", "pull", "origin", "main"], cwd=DADOS_REPO):
+        log("Falha ao fazer git pull. Verifique o repositório local.")
+        # Não retorna aqui, pois queremos tentar copiar os arquivos mesmo que o pull falhe
+        # para que o usuário possa resolver o pull manualmente depois.
 
     linhas = detectar_novos_arquivos_e_copiar()
+    # Se não houve arquivos copiados, não há o que comitar/enviar
     if linhas == 0:
-        log("Nenhum arquivo processado/copiado. Nada a atualizar.")
+        log("Nenhum arquivo processado/copiado. Nada a atualizar no Git.")
         return
 
-    # Adicionar tudo que mudou na pasta 'dados'
-    if not run_git_command(["git", "add", "dados"], cwd=DADOS_REPO):
-        log("Falha no git add (dados).")
+    # Adicionar todos os arquivos modificados/novos na pasta 'dados' e o process_log.txt
+    # O 'git add .' adiciona tudo no diretório atual (DADOS_REPO)
+    if not run_git_command(["git", "add", "."], cwd=DADOS_REPO):
+        log("Falha no git add (todos os arquivos).")
         return
 
     msg = f"Atualizando dados IHM para dashboard - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     if not run_git_command(["git", "commit", "-m", msg], cwd=DADOS_REPO):
-        log("Falha no git commit.")
-        return
+        log("Falha no git commit. Pode haver nada novo para comitar ou um problema.")
+        # Não retorna aqui, pois o commit pode falhar se não houver mudanças,
+        # mas o push ainda pode ser necessário se o commit anterior falhou.
+        # No entanto, se o commit falhou por falta de mudanças, o push não fará nada.
+        # Para este cenário, é melhor tentar o push de qualquer forma.
 
     if not run_git_command(["git", "push", "origin", "main"], cwd=DADOS_REPO):
         log("Falha no git push (fromtherm-dados).")
