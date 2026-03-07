@@ -1,0 +1,50 @@
+name: Processar logs da IHM para o dashboard
+
+on:
+  push:
+    paths:
+      - "ihm_logs/**"
+      - "process_ihm_logs.py"
+      - ".github/workflows/processar_ihm_logs.yml"
+  workflow_dispatch:
+
+jobs:
+  processar-logs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Rodar process_ihm_logs.py
+        run: |
+          python process_ihm_logs.py
+
+      - name: Configurar usuário do Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Verificar se há mudanças e fazer commit
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Atualiza dados do dashboard via GitHub Actions"
+          else
+            echo "Nenhuma mudança para commitar."
+          fi
+
+      - name: Fazer push das mudanças
+        if: success()
+        run: |
+          git push
