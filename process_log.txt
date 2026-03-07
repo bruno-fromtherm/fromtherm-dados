@@ -377,3 +377,9 @@ warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/
 [2026-03-06 22:28:42] Iniciando processamento dos logs da IHM...
 [2026-03-06 22:28:42] Copiado para dados_brutos: C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_TESTE_NOVO.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados_brutos\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_TESTE_NOVO.csv
 [2026-03-06 22:28:42] 1 novo(s) CSV(s) copiado(s) para dados_brutos. Preparando git add/commit/push...
+[2026-03-06 22:28:42] Git stdout: [main df35d75] Atualizando dados brutos IHM - 2026-03-06 22:28:42
+ 2 files changed, 63 insertions(+)
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260307_TESTE_NOVO.csv
+[2026-03-06 22:28:43] Git stderr: To https://github.com/bruno-fromtherm/fromtherm-dados.git
+   cfb7f45..df35d75  main -> main
+[2026-03-06 22:28:43] Processamento concluído e dados enviados ao GitHub com sucesso.

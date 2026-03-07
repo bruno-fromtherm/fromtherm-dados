@@ -1,9 +1,5 @@
 streamlit
 pandas
-streamlit-autorefresh
-streamlit-authenticator
-reportlab
-requests
-PyYAML
+plotly
+fpdf2
 xlsxwriter
-openpyxl
