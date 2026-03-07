@@ -315,3 +315,65 @@ no changes added to commit (use "git add" and/or "git commit -a")
 [2026-03-06 21:43:11] Copiado para dados_brutos: C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1717_OP9090_FT55L.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados_brutos\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1717_OP9090_FT55L.csv
 [2026-03-06 21:43:11] Copiado para dados_brutos: C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1737_OP2222_FT77.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados_brutos\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260306_1737_OP2222_FT77.csv
 [2026-03-06 21:43:11] 12 novo(s) CSV(s) copiado(s) para dados_brutos. Preparando git add/commit/push...
+[2026-03-06 21:43:11] Git stderr: warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_1848_OP555_195HH.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2143_OP0000_FT100H.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2257_OP7777_FT140KK.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2340_OP8888_FTI240L_BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2351_1111FTRY.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0718_OP999_FTI378L_BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0826_OP44444_FTI500BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1442_OP3333_FTI688LBR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1527_OP1111_FT50H.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1604_OP454545_FT101BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1717_OP9090_FT55L.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1737_OP2222_FT77.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_1848_OP555_195HH.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2143_OP0000_FT100H.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2257_OP7777_FT140KK.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2340_OP8888_FTI240L_BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2351_1111FTRY.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0718_OP999_FTI378L_BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0826_OP44444_FTI500BR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1442_OP3333_FTI688LBR.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1527_OP1111_FT50H.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1604_OP454545_FT101BR.csv', LF will be replaced by CRLF the next time Git touches it
+[2026-03-06 21:43:11] Git stdout: [main cfb7f45] Atualizando dados brutos IHM - 2026-03-06 21:43:11
+ 28 files changed, 569 insertions(+), 111 deletions(-)
+ create mode 100644 .gitignore
+ create mode 100644 README.md
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_1848_OP555_195HH.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2143_OP0000_FT100H.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2257_OP7777_FT140KK.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2340_OP8888_FTI240L_BR.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2351_1111FTRY.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0826_OP44444_FTI500BR.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1442_OP3333_FTI688LBR.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1527_OP1111_FT50H.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1604_OP454545_FT101BR.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1717_OP9090_FT55L.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1737_OP2222_FT77.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_1848_OP555_195HH.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2143_OP0000_FT100H.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2257_OP7777_FT140KK.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2340_OP8888_FTI240L_BR.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260305_2351_1111FTRY.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_0826_OP44444_FTI500BR.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1442_OP3333_FTI688LBR.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1527_OP1111_FT50H.csv
+ create mode 100644 ihm_logs/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260306_1604_OP454545_FT101BR.csv
+ create mode 100644 sync_log.txt
+ create mode 100644 sync_to_github.py
+[2026-03-06 21:43:13] Git stderr: To https://github.com/bruno-fromtherm/fromtherm-dados.git
+   2f7d626..cfb7f45  main -> main
+[2026-03-06 21:43:13] Processamento concluído e dados enviados ao GitHub com sucesso.
+[2026-03-06 22:21:10] Iniciando processamento dos logs da IHM...
+[2026-03-06 22:21:10] Nenhum novo CSV encontrado para processamento.
+[2026-03-06 22:21:10] Processamento finalizado.
+[2026-03-06 22:21:27] Iniciando processamento dos logs da IHM...
+[2026-03-06 22:21:27] Nenhum novo CSV encontrado para processamento.
+[2026-03-06 22:21:27] Processamento finalizado.
+[2026-03-06 22:28:42] Iniciando processamento dos logs da IHM...
+[2026-03-06 22:28:42] Copiado para dados_brutos: C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_TESTE_NOVO.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados_brutos\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_TESTE_NOVO.csv
+[2026-03-06 22:28:42] 1 novo(s) CSV(s) copiado(s) para dados_brutos. Preparando git add/commit/push...
