@@ -1,152 +1,182 @@
 import os
+import shutil
 import subprocess
 import datetime
-import shutil
-import pandas as pd
 
-# Caminho do repositório de LOGS (aquele que você já automatizou)
-IHM_LOGS_REPO = r"C:\fromtherm_ihm_logs_repo"
+# -------------------------------------------------
+# CONFIGURAÇÕES
+# -------------------------------------------------
 
-# Subpasta dentro do repositório de logs onde estão os CSVs da IHM
-IHM_LOGS_DIR = os.path.join(
-    IHM_LOGS_REPO,
-    "ihm_logs",
-    "historico_L1",
-    "IP_registro192.168.2.150",
-    "datalog"
-)
+# Pasta onde ficam os CSVs já enviados pelo outro repositório (fromtherm_ihm_logs_repo)
+LOGS_REPO_DIR = r"C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs"
 
-# Caminho do repositório fromtherm-dados (onde está este script)
-DADOS_REPO = r"C:\fromtherm-dados"  # ajuste se estiver em outro lugar
+# Pasta deste repositório (fromtherm-dados)
+DADOS_REPO_DIR = r"C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados"
 
-# Pasta de saída dos arquivos que o dashboard usa
-DADOS_DIR = os.path.join(DADOS_REPO, "dados")
+# Pasta dentro do fromtherm-dados onde vamos guardar uma cópia dos CSVs para processamento
+DADOS_BRUTOS_DIR = os.path.join(DADOS_REPO_DIR, "dados_brutos")
 
-# (Opcional) arquivo consolidado - se ainda quiser manter
-OUTPUT_CSV = os.path.join(DADOS_DIR, "ihm_historico_L1.csv")
+# Arquivo de controle para saber quais CSVs já foram processados
+PROCESSED_CSV_LOG = os.path.join(DADOS_REPO_DIR, "processed_csv.log")
 
+# -------------------------------------------------
+# FUNÇÕES AUXILIARES
+# -------------------------------------------------
 
-def log(msg: str):
-    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{ts}] {msg}"
+def log_message(message: str):
+    """Registra mensagens na tela e em um arquivo de log dentro do fromtherm-dados."""
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {message}"
     print(line)
-    # Garante que o arquivo de log seja criado se não existir
-    with open(os.path.join(DADOS_REPO, "process_log.txt"), "a", encoding="utf-8") as f:
+    log_path = os.path.join(DADOS_REPO_DIR, "process_log.txt")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as f:
         f.write(line + "\n")
 
 
-def run_git_command(args, cwd):
+def get_processed_csvs() -> set:
+    """Lê o arquivo de controle e devolve um conjunto com os CSVs já processados."""
+    if not os.path.exists(PROCESSED_CSV_LOG):
+        return set()
+    with open(PROCESSED_CSV_LOG, "r", encoding="utf-8") as f:
+        return set(line.strip() for line in f if line.strip())
+
+
+def add_processed_csv(path: str):
+    """Registra um novo CSV como já processado."""
+    with open(PROCESSED_CSV_LOG, "a", encoding="utf-8") as f:
+        f.write(path + "\n")
+
+
+def run_git_command(args: list) -> bool:
+    """Executa um comando git dentro do repositório fromtherm-dados e registra logs."""
     try:
         result = subprocess.run(
             args,
-            cwd=cwd,
+            cwd=DADOS_REPO_DIR,
+            check=True,
             capture_output=True,
             text=True,
-            check=True,
+            encoding="utf-8"
         )
-        if result.stdout:
-            log(f"Git stdout: {result.stdout.strip()}")
-        if result.stderr:
-            log(f"Git stderr: {result.stderr.strip()}")
+        if result.stdout.strip():
+            log_message(f"Git stdout: {result.stdout.strip()}")
+        if result.stderr.strip():
+            log_message(f"Git stderr: {result.stderr.strip()}")
         return True
     except subprocess.CalledProcessError as e:
-        log(f"ERRO git ({' '.join(args)}): {e}")
+        log_message(f"ERRO git ({' '.join(args)}): {e}")
         if e.stdout:
-            log(f"stdout: {e.stdout}")
+            log_message(f"stdout: {e.stdout.strip()}")
         if e.stderr:
-            log(f"stderr: {e.stderr}")
+            log_message(f"stderr: {e.stderr.strip()}")
         return False
     except FileNotFoundError:
-        log(f"ERRO: Comando Git não encontrado. Certifique-se de que o Git está instalado e no PATH.")
+        log_message("ERRO: Git não encontrado. Verifique se o Git está instalado e no PATH.")
         return False
 
+# -------------------------------------------------
+# FUNÇÃO PRINCIPAL
+# -------------------------------------------------
 
-def detectar_novos_arquivos_e_copiar():
+def process_ihm_logs():
     """
-    Copia todos os CSV da pasta de logs (fromtherm-ihm-logs)
-    para a pasta 'dados' do repo fromtherm-dados, mantendo os nomes.
-
-    Também (opcional) monta um consolidado.
+    Copia CSVs novos do repositório de logs (fromtherm_ihm_logs_repo\ihm_logs)
+    para a pasta dados_brutos deste repositório (fromtherm-dados) e faz git add/commit/push.
+    Aqui é o lugar certo para depois adicionar o processamento dos dados (pandas, etc.).
     """
-    if not os.path.exists(IHM_LOGS_DIR):
-        log(f"Pasta de logs IHM não encontrada: {IHM_LOGS_DIR}")
-        return 0
+    log_message("Iniciando processamento dos logs da IHM...")
 
-    os.makedirs(DADOS_DIR, exist_ok=True)
-
-    arquivos_logs = [
-        os.path.join(IHM_LOGS_DIR, f)
-        for f in os.listdir(IHM_LOGS_DIR)
-        if f.lower().endswith(".csv")
-    ]
-
-    if not arquivos_logs:
-        log("Nenhum arquivo CSV encontrado na pasta de logs IHM.")
-        return 0
-
-    linhas_total = 0
-    df_consolidados = []
-
-    for caminho_origem in arquivos_logs:
-        nome = os.path.basename(caminho_origem)
-        caminho_destino = os.path.join(DADOS_DIR, nome)
-
-        # Copia os arquivos com mesmo nome para a pasta 'dados'
-        shutil.copy2(caminho_origem, caminho_destino)
-        log(f"Copiado para dashboard: {caminho_origem} -> {caminho_destino}")
-
-        # (Opcional) também monta o consolidado em memória
-        try:
-            df_tmp = pd.read_csv(caminho_origem)
-            df_consolidados.append(df_tmp)
-            linhas_total += len(df_tmp)
-        except Exception as e:
-            log(f"Falha ao ler para consolidação: {caminho_origem} -> {e}")
-
-    # (Opcional) salvar consolidado
-    if df_consolidados:
-        df_final = pd.concat(df_consolidados, ignore_index=True)
-        df_final.to_csv(OUTPUT_CSV, index=False)
-        log(f"Arquivo consolidado salvo em: {OUTPUT_CSV} (linhas: {len(df_final)})")
-
-    return linhas_total
-
-
-def main():
-    log("Iniciando processamento dos logs da IHM (cópia para pasta 'dados')...")
-
-    # Garantir que estamos com o repositório atualizado antes de copiar
-    if not run_git_command(["git", "pull", "origin", "main"], cwd=DADOS_REPO):
-        log("Falha ao fazer git pull. Verifique o repositório local.")
-        # Não retorna aqui, pois queremos tentar copiar os arquivos mesmo que o pull falhe
-        # para que o usuário possa resolver o pull manualmente depois.
-
-    linhas = detectar_novos_arquivos_e_copiar()
-    # Se não houve arquivos copiados, não há o que comitar/enviar
-    if linhas == 0:
-        log("Nenhum arquivo processado/copiado. Nada a atualizar no Git.")
+    # Verifica se a pasta de origem existe
+    if not os.path.isdir(LOGS_REPO_DIR):
+        log_message(f"Pasta de logs não encontrada: {LOGS_REPO_DIR}")
+        log_message("Processamento finalizado com erro de configuração.")
         return
 
-    # Adicionar todos os arquivos modificados/novos na pasta 'dados' e o process_log.txt
-    # O 'git add .' adiciona tudo no diretório atual (DADOS_REPO)
-    if not run_git_command(["git", "add", "."], cwd=DADOS_REPO):
-        log("Falha no git add (todos os arquivos).")
+    # Garante que a pasta de destino existe
+    os.makedirs(DADOS_BRUTOS_DIR, exist_ok=True)
+
+    processed = get_processed_csvs()
+    novos_csvs = []
+
+    # Varre toda a pasta de logs em busca de CSVs
+    for root, _, files in os.walk(LOGS_REPO_DIR):
+        for file in files:
+            if not file.lower().endswith(".csv"):
+                continue
+
+            source_path = os.path.join(root, file)
+
+            # Se já foi processado, pula
+            if source_path in processed:
+                continue
+
+            # Mantém estrutura de subpastas sob a pasta LOGS_REPO_DIR
+            relative_path = os.path.relpath(source_path, LOGS_REPO_DIR)
+            dest_path = os.path.join(DADOS_BRUTOS_DIR, relative_path)
+
+            # Garante subpastas em dados_brutos
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+            try:
+                shutil.copy2(source_path, dest_path)
+                log_message(f"Copiado para dados_brutos: {source_path} -> {dest_path}")
+                novos_csvs.append(source_path)
+                add_processed_csv(source_path)
+            except Exception as e:
+                log_message(f"Erro ao copiar {source_path} para dados_brutos: {e}")
+
+    if not novos_csvs:
+        log_message("Nenhum novo CSV encontrado para processamento.")
+        log_message("Processamento finalizado.")
         return
 
-    msg = f"Atualizando dados IHM para dashboard - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    if not run_git_command(["git", "commit", "-m", msg], cwd=DADOS_REPO):
-        log("Falha no git commit. Pode haver nada novo para comitar ou um problema.")
-        # Não retorna aqui, pois o commit pode falhar se não houver mudanças,
-        # mas o push ainda pode ser necessário se o commit anterior falhou.
-        # No entanto, se o commit falhou por falta de mudanças, o push não fará nada.
-        # Para este cenário, é melhor tentar o push de qualquer forma.
+    log_message(f"{len(novos_csvs)} novo(s) CSV(s) copiado(s) para dados_brutos. Preparando git add/commit/push...")
 
-    if not run_git_command(["git", "push", "origin", "main"], cwd=DADOS_REPO):
-        log("Falha no git push (fromtherm-dados).")
+    # Aqui você poderia adicionar a lógica de processamento (pandas, etc.)
+    # Exemplo (comentado):
+    # for csv_path in [os.path.join(DADOS_BRUTOS_DIR, os.path.relpath(p, LOGS_REPO_DIR)) for p in novos_csvs]:
+    #     try:
+    #         # fazer análise com pandas, gerar gráficos, etc.
+    #         pass
+    #     except Exception as e:
+    #         log_message(f"Erro ao processar {csv_path}: {e}")
+
+    # git add .
+    if not run_git_command(["git", "add", "."]):
+        log_message("Falha no git add.")
         return
 
-    log("Processamento concluído e dados enviados para fromtherm-dados com sucesso.")
+    # Verifica se há mudanças a serem commitadas
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=DADOS_REPO_DIR,
+        capture_output=True,
+        text=True,
+        encoding="utf-8"
+    ).stdout.strip()
 
+    if not status:
+        log_message("Sem mudanças para commit após git add.")
+        log_message("Processamento finalizado.")
+        return
+
+    # git commit
+    commit_msg = "Atualizando dados brutos IHM - " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if not run_git_command(["git", "commit", "-m", commit_msg]):
+        log_message("Falha no git commit.")
+        return
+
+    # git push
+    if not run_git_command(["git", "push", "origin", "main"]):
+        log_message("Falha no git push. Verifique branch, conexão ou credenciais.")
+        return
+
+    log_message("Processamento concluído e dados enviados ao GitHub com sucesso.")
+
+# -------------------------------------------------
+# EXECUÇÃO
+# -------------------------------------------------
 
 if __name__ == "__main__":
-    main()
+    process_ihm_logs()
