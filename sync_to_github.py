@@ -5,13 +5,21 @@ import datetime
 
 # CONFIGURAÇÕES
 # Pasta onde os arquivos CSV da IHM chegam (raiz dos uploads)
+# MANTÉM O MESMO CAMINHO DE ORIGEM DOS SEUS CSVs
 SOURCE_DIR = r"C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\FROMTHERM_IHM_UPLOADS"
 
-# Pasta dentro do repositório LOCAL onde vamos guardar os CSVs
-DEST_DIR = r"C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs"
+# Raiz do repositório Git LOCAL (onde este script sync_to_github.py está)
+# Isso garante que os comandos git rodem no repositório correto.
+# O os.path.dirname(__file__) pega o diretório onde o script está.
+GIT_REPO_PATH = os.path.dirname(os.path.abspath(__file__))
 
-# Raiz do repositório Git LOCAL
-GIT_REPO_PATH = r"C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo"
+# Pasta dentro do repositório LOCAL 'fromtherm-dados' onde vamos guardar os CSVs
+# Agora aponta para a pasta 'ihm_logs' DENTRO DO REPOSITÓRIO ATUAL
+DEST_DIR = os.path.join(GIT_REPO_PATH, "ihm_logs")
+
+# Arquivo de controle para registrar CSVs já processados
+PROCESSED_FILES_LOG = os.path.join(GIT_REPO_PATH, "processed_files.log")
+
 def log_message(message: str):
     """Registra mensagens na tela e em um arquivo de log."""
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -85,6 +93,8 @@ def sync_files():
                 continue
 
             # Caminho relativo para manter subpastas (se existirem)
+            # Ex: se o CSV está em SOURCE_DIR/historico_L1/arquivo.csv
+            # ele será copiado para DEST_DIR/historico_L1/arquivo.csv
             relative = os.path.relpath(source_path, SOURCE_DIR)
             dest_path = os.path.join(DEST_DIR, relative)
 
@@ -139,4 +149,4 @@ def sync_files():
     log_message("Sincronização com GitHub concluída com sucesso.")
 
 if __name__ == "__main__":
-    sync_files() 
+    sync_files()
