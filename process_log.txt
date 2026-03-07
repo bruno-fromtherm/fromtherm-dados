@@ -430,3 +430,29 @@ warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.
 [2026-03-07 00:17:40] Copiado para dados_brutos: C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_0016_OP456_FT123L.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados_brutos\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_0016_OP456_FT123L.csv
 [2026-03-07 00:17:40] Copiado para dados (dashboard): C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_0016_OP456_FT123L.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados\historico_L1_20260307_0016_OP456_FT123L.csv
 [2026-03-07 00:17:40] 1 novo(s) CSV(s) copiado(s). Preparando git add/commit/push...
+[2026-03-07 00:17:40] Git stderr: warning: in the working copy of 'dados/historico_L1_20260307_0016_OP456_FT123L.csv', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260307_0016_OP456_FT123L.csv', LF will be replaced by CRLF the next time Git touches it
+[2026-03-07 00:17:40] Git stdout: [main 8099d32] Atualizando dados IHM - 2026-03-07 00:17:40
+ 6 files changed, 665 insertions(+), 241 deletions(-)
+ create mode 100644 dados/historico_L1_20260307_0016_OP456_FT123L.csv
+ create mode 100644 dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/historico_L1_20260307_0016_OP456_FT123L.csv
+ create mode 100644 process_ihm_logs.txt
+[2026-03-07 00:17:42] Git stderr: To https://github.com/bruno-fromtherm/fromtherm-dados.git
+   194139b..8099d32  main -> main
+[2026-03-07 00:17:42] Processamento concluído e dados enviados ao GitHub com sucesso.
+[2026-03-07 00:18:28] Iniciando processamento dos logs da IHM...
+[2026-03-07 00:18:28] Nenhum novo CSV encontrado para processamento.
+[2026-03-07 00:18:28] Processamento finalizado.
+[2026-03-07 00:22:20] Iniciando processamento dos logs da IHM...
+[2026-03-07 00:22:20] Nenhum novo CSV encontrado para processamento.
+[2026-03-07 00:22:20] Processamento finalizado.
+[2026-03-07 00:23:28] Iniciando processamento dos logs da IHM...
+[2026-03-07 00:23:28] Nenhum novo CSV encontrado para processamento.
+[2026-03-07 00:23:28] Processamento finalizado.
+[2026-03-07 00:24:04] Iniciando processamento dos logs da IHM...
+[2026-03-07 00:24:04] Nenhum novo CSV encontrado para processamento.
+[2026-03-07 00:24:04] Processamento finalizado.
+[2026-03-07 00:27:27] Iniciando processamento dos logs da IHM...
+[2026-03-07 00:27:27] Copiado para dados_brutos: C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_0025_OP555_FT444L.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados_brutos\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_0025_OP555_FT444L.csv
+[2026-03-07 00:27:27] Copiado para dados (dashboard): C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm_ihm_logs_repo\ihm_logs\historico_L1\IP_registro192.168.2.150\datalog\historico_L1_20260307_0025_OP555_FT444L.csv -> C:\Users\Bruno\OneDrive\Documentos\FROMTHERM-IHM-ENVIO-AUTOMATICO\fromtherm-dados\dados\historico_L1_20260307_0025_OP555_FT444L.csv
+[2026-03-07 00:27:27] 1 novo(s) CSV(s) copiado(s). Preparando git add/commit/push...
