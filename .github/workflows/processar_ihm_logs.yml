@@ -12,6 +12,9 @@ jobs:
   processar-logs:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write # ESSA LINHA FOI ADICIONADA PARA DAR PERMISSÃO DE ESCRITA
+
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v4
