@@ -40,6 +40,14 @@ st.markdown(
     button[title="View options"] {
         display: none !important;
     }
+    /* Esconder o ícone de menu do Streamlit que pode conter o "0" */
+    .st-emotion-cache-1r6dm1x { /* Seletor específico para o ícone de menu */
+        display: none !important;
+    }
+    /* Esconder o elemento pai do ícone de menu */
+    .st-emotion-cache-10q71g7 { /* Seletor específico para o container do ícone de menu */
+        display: none !important;
+    }
 
 
     /* Estilo dos cards de métricas */
@@ -124,7 +132,7 @@ def listar_arquivos_csv():
     for caminho in arquivos:
         nome = os.path.basename(caminho)
         linha = ""
-        data = None
+        data = datetime.min.date() # Inicializa com data mínima para evitar None
         ano = None
         mes = None
         hora = ""
@@ -146,6 +154,7 @@ def listar_arquivos_csv():
                 mes = data.month
                 hora = f"{hora_str[:2]}:{hora_str[2:]}"
         except Exception:
+            # Se houver erro no parsing, data permanece datetime.min.date()
             pass
 
         info_arquivos.append(
@@ -182,10 +191,11 @@ if not todos_arquivos_info:
     st.stop()
 
 # --- Determinar o arquivo mais recente (por data + hora) ---
+# Garante que 'data' seja sempre um objeto datetime.date válido
 arquivo_mais_recente = max(
     todos_arquivos_info,
     key=lambda x: (
-        x["data"] if x["data"] else datetime.min.date(),
+        x["data"], # Já inicializado com datetime.min.date() ou data real
         x["hora"] or "",
     ),
 )
@@ -195,244 +205,89 @@ arquivo_mais_recente = max(
 # =====================================================
 st.markdown("### Última Leitura Registrada")
 
+# Exibe as informações do arquivo mais recente
+st.markdown(
+    f"**Modelo:** **{arquivo_mais_recente['modelo']}** | **OP:** **{arquivo_mais_recente['operacao']}** | **Data:** {arquivo_mais_recente['data'].strftime('%d/%m/%Y')} | **Hora:** {arquivo_mais_recente['hora']}"
+)
+
+# Carrega os dados do arquivo mais recente para extrair a última linha
 try:
-    df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"]).copy()
+    df_mais_recente = carregar_csv_caminho(arquivo_mais_recente["caminho"])
+    ultima_linha = df_mais_recente.iloc[-1]
 
-    df_ultimo.columns = [
-        "Date",
-        "Time",
-        "Ambiente",
-        "Entrada",
-        "Saída",
-        "ΔT",
-        "Tensão",
-        "Corrente",
-        "kcal/h",
-        "Vazão",
-        "kW Aquecimento",
-        "kW Consumo",
-        "COP",
-    ]
+    # Mapeamento de nomes de colunas para exibição e ícones
+    metricas = {
+        "T-Ambiente": {"col": "Ambiente", "icon": "bi-thermometer-half"},
+        "T-Entrada": {"col": "Entrada", "icon": "bi-arrow-down-circle"},
+        "T-Saída": {"col": "Saída", "icon": "bi-arrow-up-circle", "class": "red"},
+        "DIF (ΔT)": {"col": "ΔT", "icon": "bi-arrow-down-up"}, # Novo ícone para diferencial
+        "Tensão": {"col": "Tensão", "icon": "bi-lightning-charge"},
+        "Corrente": {"col": "Corrente", "icon": "bi-lightning"},
+        "kcal/h": {"col": "kcal/h", "icon": "bi-fire"},
+        "Vazão": {"col": "Vazão", "icon": "bi-droplet"},
+        "kW Aquecimento": {"col": "kW Aquecimento", "icon": "bi-sun"},
+        "kW Consumo": {"col": "kW Consumo", "icon": "bi-plug"},
+        "COP": {"col": "COP", "icon": "bi-speedometer2"},
+    }
 
-    ultima_linha = df_ultimo.iloc[-1]
+    cols = st.columns(3) # 3 colunas para os cards
 
-    st.markdown(
-        f"""
-        <div style="font-size: 14px; font-weight: 600; color: #003366; margin-bottom: 15px;">
-            Modelo: <span style="color: #111111;">{arquivo_mais_recente['modelo']}</span> |
-            OP: <span style="color: #111111;">{arquivo_mais_recente['operacao']}</span> |
-            Data: <span style="color: #111111;">{arquivo_mais_recente['data'].strftime('%d/%m/%Y')}</span> |
-            Hora: <span style="color: #111111;">{arquivo_mais_recente['hora']}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-thermometer-half ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">T-Ambiente (°C)</p>
-                <p class="ft-card-value">{ultima_linha['Ambiente']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-arrow-down-circle ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">T-Entrada (°C)</p>
-                <p class="ft-card-value">{ultima_linha['Entrada']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-arrow-up-circle ft-card-icon red"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">T-Saída (°C)</p>
-                <p class="ft-card-value">{ultima_linha['Saída']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col2:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-arrow-down-up ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">DIF (ΔT) (°C)</p>
-                <p class="ft-card-value">{ultima_linha['ΔT']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-lightning-charge ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">Tensão (V)</p>
-                <p class="ft-card-value">{ultima_linha['Tensão']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-lightning ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">Corrente (A)</p>
-                <p class="ft-card-value">{ultima_linha['Corrente']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col3:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-fire ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">kcal/h</p>
-                <p class="ft-card-value">{ultima_linha['kcal/h']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-droplet ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">Vazão</p>
-                <p class="ft-card-value">{ultima_linha['Vazão']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-sun ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">kW Aquecimento</p>
-                <p class="ft-card-value">{ultima_linha['kW Aquecimento']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # Últimos dois itens em uma nova linha para manter o grid
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-plug ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">kW Consumo</p>
-                <p class="ft-card-value">{ultima_linha['kW Consumo']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with col5:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-speedometer2 ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">COP</p>
-                <p class="ft-card-value">{ultima_linha['COP']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with col6:
-        st.empty() # Coluna vazia para manter o alinhamento se houver 11 itens
+    for i, (titulo, info) in enumerate(metricas.items()):
+        with cols[i % 3]: # Distribui os cards nas 3 colunas
+            valor = ultima_linha[info["col"]] if info["col"] in ultima_linha else "N/A"
+            icon_class = info.get("class", "") # Pega a classe 'red' se existir
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi {info['icon']} ft-card-icon {icon_class}"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">{titulo}</p>
+                    <p class="ft-card-value">{valor}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 except Exception as e:
     st.error(f"Não foi possível gerar o painel da última leitura: {e}")
-    st.info("Verifique se o formato do CSV está conforme o padrão esperado.")
+    st.info("Verifique se o formato do CSV está conforme o padrão esperado e se há dados nos arquivos.")
 
 st.markdown("---") # Separador visual
 
-# =========================
-#  TABS (Históricos e Gráficos)
-# =========================
-tab_hist, tab_graf = st.tabs(["📄 Históricos e Planilhas", "📊 Crie Seu Gráfico"])
+# =====================================================
+#  ABA: Históricos e Planilhas
+# =====================================================
+tab1, tab2 = st.tabs(["📄 Históricos e Planilhas", "📊 Crie Seu Gráfico"])
 
-# =========================
-#  TAB 1 - HISTÓRICOS E PLANILHAS
-# =========================
-with tab_hist:
-    st.subheader("Históricos Disponíveis")
+with tab1:
+    st.markdown("### Históricos Disponíveis")
 
-    st.markdown(
-        "Use os filtros abaixo para encontrar e baixar os históricos de testes."
-    )
-
-    # --- Filtros na barra lateral para a TAB 1 ---
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Filtros de Históricos")
-
+    # Filtros para a lista de históricos
     modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
-    modelo_selecionado = st.sidebar.selectbox(
-        "Modelo:",
+    modelo_selecionado = st.selectbox(
+        "Filtrar por Modelo:",
         ["Todos"] + modelos_disponiveis,
         key="hist_modelo",
     )
 
-    arquivos_filtrados_modelo = [
-        a for a in todos_arquivos_info if modelo_selecionado == "Todos" or a["modelo"] == modelo_selecionado
-    ]
-
-    anos_disponiveis = sorted(list(set(a["ano"] for a in arquivos_filtrados_modelo if a["ano"])), reverse=True)
-    ano_selecionado = st.sidebar.selectbox(
-        "Ano:",
+    anos_disponiveis = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"])))
+    ano_selecionado = st.selectbox(
+        "Filtrar por Ano:",
         ["Todos"] + anos_disponiveis,
         key="hist_ano",
     )
 
-    arquivos_filtrados_ano = [
-        a for a in arquivos_filtrados_modelo if ano_selecionado == "Todos" or a["ano"] == ano_selecionado
-    ]
-
+    meses_disponiveis = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"])))
     mes_label_map = {
-        1: "01 - Jan", 2: "02 - Fev", 3: "03 - Mar", 4: "04 - Abr",
-        5: "05 - Mai", 6: "06 - Jun", 7: "07 - Jul", 8: "08 - Ago",
-        9: "09 - Set", 10: "10 - Out", 11: "11 - Nov", 12: "12 - Dez",
+        1: "01 Janeiro", 2: "02 Fevereiro", 3: "03 Março", 4: "04 Abril",
+        5: "05 Maio", 6: "06 Junho", 7: "07 Julho", 8: "08 Agosto",
+        9: "09 Setembro", 10: "10 Outubro", 11: "11 Novembro", 12: "12 Dezembro"
     }
-
-    meses_disponiveis = sorted(list(set(a["mes"] for a in arquivos_filtrados_ano if a["mes"])))
     meses_labels = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis] if meses_disponiveis else ["Todos"]
 
-    mes_selecionado_label = st.sidebar.selectbox(
-        "Mês:",
+    mes_selecionado_label = st.selectbox(
+        "Filtrar por Mês:",
         meses_labels,
         key="hist_mes",
     )
@@ -440,130 +295,94 @@ with tab_hist:
     if mes_selecionado_label != "Todos":
         mes_selecionado = int(mes_selecionado_label.split(" ")[0])
 
-    arquivos_filtrados_mes = [
-        a for a in arquivos_filtrados_ano if mes_selecionado is None or a["mes"] == mes_selecionado
-    ]
-
-    datas_disponiveis = sorted(list(set(a["data"] for a in arquivos_filtrados_mes if a["data"])), reverse=True)
-    data_selecionada = st.sidebar.selectbox(
-        "Data:",
-        ["Todas"] + [d.strftime("%d/%m/%Y") for d in datas_disponiveis],
-        key="hist_data",
+    data_especifica_str = st.text_input(
+        "Data específica (opcional): YYYY/MM/DD", key="hist_data_especifica"
     )
+    data_especifica = None
+    if data_especifica_str:
+        try:
+            data_especifica = datetime.strptime(data_especifica_str, "%Y/%m/%d").date()
+        except ValueError:
+            st.error("Formato de data inválido. Use YYYY/MM/DD.")
 
-    arquivos_filtrados_data = [
-        a for a in arquivos_filtrados_mes if data_selecionada == "Todas" or a["data"].strftime("%d/%m/%Y") == data_selecionada
-    ]
-
-    ops_disponiveis = sorted(list(set(a["operacao"] for a in arquivos_filtrados_data if a["operacao"])))
-    op_selecionada = st.sidebar.selectbox(
-        "Operação (OP):",
-        ["Todas"] + ops_disponiveis,
+    ops_disponiveis_filtro = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"])))
+    op_selecionada = st.selectbox(
+        "Operação (OPs):",
+        ["Todas"] + ops_disponiveis_filtro,
         key="hist_op",
     )
 
-    arquivos_finais = [
-        a for a in arquivos_filtrados_data if op_selecionada == "Todas" or a["operacao"] == op_selecionada
+    # Aplica os filtros
+    arquivos_filtrados = [
+        a
+        for a in todos_arquivos_info
+        if (modelo_selecionado == "Todos" or a["modelo"] == modelo_selecionado)
+        and (ano_selecionado == "Todos" or a["ano"] == ano_selecionado)
+        and (mes_selecionado is None or a["mes"] == mes_selecionado)
+        and (data_especifica is None or a["data"] == data_especifica)
+        and (op_selecionada == "Todas" or a["operacao"] == op_selecionada)
     ]
 
-    if not arquivos_finais:
-        st.info("Nenhum histórico encontrado com os filtros selecionados.")
+    if not arquivos_filtrados:
+        st.info("Nenhum histórico encontrado com os filtros aplicados.")
     else:
-        st.write(f"**{len(arquivos_finais)}** históricos encontrados:")
+        for arquivo in sorted(arquivos_filtrados, key=lambda x: (x["data"], x["hora"]), reverse=True):
+            expander_title = f"**{arquivo['modelo']}** - Linha: {arquivo['linha']} - Data: {arquivo['data'].strftime('%d/%m/%Y')} - Hora: {arquivo['hora']} - Operação: {arquivo['operacao']}"
+            with st.expander(expander_title):
+                st.write(f"Nome do arquivo: `{arquivo['nome_arquivo']}`")
+                df = carregar_csv_caminho(arquivo["caminho"])
+                st.dataframe(df, use_container_width=True)
 
-        for i, arquivo in enumerate(arquivos_finais):
-            col_info, col_download = st.columns([0.7, 0.3])
-            with col_info:
-                st.markdown(
-                    f"**{arquivo['modelo']}** | OP: **{arquivo['operacao']}** | Data: {arquivo['data'].strftime('%d/%m/%Y')} | Hora: {arquivo['hora']}"
-                )
-            with col_download:
-                try:
-                    df_para_download = carregar_csv_caminho(arquivo["caminho"])
-                    # Renomear colunas para o download
-                    df_para_download.columns = [
-                        "Data", "Hora", "T-Ambiente", "T-Entrada", "T-Saída", "DIF (ΔT)",
-                        "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"
-                    ]
-
-                    # Gerar nome de arquivo formatado
-                    data_formatada = arquivo['data'].strftime('%d-%m-%Y')
-                    hora_formatada = arquivo['hora'].replace(':', '-')
-                    nome_arquivo = f"Maquina_{arquivo['modelo']}_OP{arquivo['operacao']}_{data_formatada}_{hora_formatada}hs"
-
-                    # Download CSV
-                    csv_buffer = BytesIO()
-                    df_para_download.to_csv(csv_buffer, index=False, sep=';', decimal=',')
+                # Botões de download
+                col_dl1, col_dl2 = st.columns(2)
+                with col_dl1:
+                    csv_data = df.to_csv(index=False, sep=";").encode("utf-8")
                     st.download_button(
-                        label="Baixar CSV",
-                        data=csv_buffer.getvalue(),
-                        file_name=f"{nome_arquivo}.csv",
+                        label="Baixar como CSV",
+                        data=csv_data,
+                        file_name=f"{arquivo['nome_arquivo'].replace('.csv', '')}.csv",
                         mime="text/csv",
-                        key=f"csv_download_{i}",
+                        use_container_width=True,
+                    )
+                with col_dl2:
+                    # Geração de PDF
+                    buffer = BytesIO()
+                    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+                    styles = getSampleStyleSheet()
+                    elements = []
+
+                    elements.append(Paragraph(f"Relatório de Teste - {arquivo['modelo']} / {arquivo['operacao']}", styles["h2"]))
+                    elements.append(Paragraph(f"Data: {arquivo['data'].strftime('%d/%m/%Y')} - Hora: {arquivo['hora']}", styles["Normal"]))
+                    elements.append(Spacer(1, 12))
+
+                    # Preparar dados para a tabela PDF
+                    data_pdf = [df.columns.tolist()] + df.values.tolist()
+                    table = Table(data_pdf)
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#f8f9fa")),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor("#dee2e6")),
+                    ]))
+                    elements.append(table)
+                    doc.build(elements)
+                    pdf_data = buffer.getvalue()
+
+                    st.download_button(
+                        label="Baixar como PDF",
+                        data=pdf_data,
+                        file_name=f"{arquivo['nome_arquivo'].replace('.csv', '')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
                     )
 
-                    # # Download PDF (desativado temporariamente para simplificar)
-                    # pdf_buffer = BytesIO()
-                    # doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
-                    # styles = getSampleStyleSheet()
-                    #
-                    # # Título do PDF
-                    # title_style = ParagraphStyle(
-                    #     'TitleStyle',
-                    #     parent=styles['h1'],
-                    #     fontSize=18,
-                    #     leading=22,
-                    #     alignment=1, # Center
-                    #     spaceAfter=12,
-                    #     textColor=colors.HexColor('#003366')
-                    # )
-                    # elements = [
-                    #     Paragraph(f"Relatório de Teste - Máquina {arquivo['modelo']}", title_style),
-                    #     Paragraph(f"Operação: {arquivo['operacao']} | Data: {arquivo['data'].strftime('%d/%m/%Y')} | Hora: {arquivo['hora']}", styles['h3']),
-                    #     Spacer(1, 0.2 * inch)
-                    # ]
-                    #
-                    # # Tabela de dados
-                    # data_table = [df_para_download.columns.tolist()] + df_para_download.values.tolist()
-                    # table = Table(data_table)
-                    # table.setStyle(TableStyle([
-                    #     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
-                    #     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    #     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    #     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    #     ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    #     ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                    #     ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                    # ]))
-                    # elements.append(table)
-                    #
-                    # doc.build(elements)
-                    #
-                    # st.download_button(
-                    #     label="Baixar PDF",
-                    #     data=pdf_buffer.getvalue(),
-                    #     file_name=f"{nome_arquivo}.pdf",
-                    #     mime="application/pdf",
-                    #     key=f"pdf_download_{i}",
-                    # )
-
-                except Exception as e:
-                    st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
-                    st.info("Verifique se o arquivo CSV está no formato correto (separado por ponto e vírgula ';' ou vírgula ',').")
-
-
-# =========================
-#  TAB 2 - CRIE SEU GRÁFICO
-# =========================
-with tab_graf:
-    st.subheader("Crie Seu Gráfico")
-
-    st.markdown(
-        "Selecione o **Modelo**, **Ano**, **Mês**, **Operação (OP)** e os itens que deseja visualizar no gráfico."
-    )
+with tab2:
+    st.markdown("### Crie Seu Gráfico")
 
     modelos_disponiveis_graf = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
-
     modelo_graf = st.selectbox(
         "Modelo:",
         modelos_disponiveis_graf if modelos_disponiveis_graf else ["Nenhum modelo disponível"],
@@ -581,12 +400,6 @@ with tab_graf:
     )
 
     arquivos_por_modelo_ano = [a for a in arquivos_por_modelo if a["ano"] == ano_graf]
-
-    mes_label_map = {
-        1: "01 - Jan", 2: "02 - Fev", 3: "03 - Mar", 4: "04 - Abr",
-        5: "05 - Mai", 6: "06 - Jun", 7: "07 - Jul", 8: "08 - Ago",
-        9: "09 - Set", 10: "10 - Out", 11: "11 - Nov", 12: "12 - Dez",
-    }
 
     meses_disponiveis_graf = sorted(list(set(a["mes"] for a in arquivos_por_modelo_ano if a["mes"])))
     meses_labels_graf = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis_graf] if meses_disponiveis_graf else ["Todos"]
