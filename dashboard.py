@@ -11,55 +11,94 @@ from io import BytesIO
 import plotly.express as px
 
 # --- Configuração básica da página ---
-st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
+st.set_page_config(layout="wide", page_title="Teste de Máquinas Fromtherm") # Título da aba do navegador
 
 # =========================
-#  CSS GLOBAL (fundo + correção do "0")
+#  CSS GLOBAL (correção do "0", cards com animação suave)
 # =========================
 st.markdown(
     """
     <style>
-    /* Fundo geral da página (tom próximo ao site Fromtherm) */
-    .stApp {
-        background-color: #f4f6f9;
+    /* REMOÇÃO DEFINITIVA DO "0" TEIMOSO (abordagem mais agressiva e genérica) */
+    /* Esconde qualquer elemento span que seja o primeiro filho de um div no topo da página */
+    div[data-testid="stAppViewContainer"] > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child > span {
+        display: none !important;
+    }
+    /* Uma alternativa mais genérica, caso a de cima não funcione em todos os casos */
+    div[data-testid="stAppViewContainer"] > div:first-child > div:first-child > div:first-child > div:first-child > span {
+        display: none !important;
+    }
+    /* E uma última tentativa para qualquer span pequeno e solto no topo */
+    span[data-testid="stDecoration"] {
+        display: none !important;
+    }
+    /* Outra tentativa para esconder o "0" que pode ser um elemento de "summary" */
+    summary {
+        display: none !important;
+    }
+    /* Esconder o botão de menu que pode conter o "0" */
+    button[title="View options"] {
+        display: none !important;
+    }
+    /* Esconder o ícone de menu do Streamlit que pode conter o "0" */
+    .st-emotion-cache-1r6dm1x { /* Seletor específico para o ícone de menu */
+        display: none !important;
+    }
+    /* Esconder o elemento pai do ícone de menu */
+    .st-emotion-cache-10q71g7 { /* Seletor específico para o container do ícone de menu */
+        display: none !important;
     }
 
-    /* Container principal - deixa conteúdo sobre "cartão branco" */
-    .main > div {
-        background-color: #ffffff;
-        padding: 10px 25px 40px 25px;
+
+    /* Estilo dos cards de métricas */
+    .ft-card {
+        background: #ffffff;
         border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-top: 5px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        border-left: 4px solid #0d6efd; /* Cor padrão da borda */
+    }
+    .ft-card-icon {
+        font-size: 26px;
+        margin-right: 10px;
+        color: #0d6efd; /* Cor padrão do ícone */
+        animation: ft-pulse 1.5s ease-in-out infinite; /* Animação de pulso suave para todos */
+    }
+    .ft-card-icon.red {
+        color: #dc3545; /* Cor vermelha para T-Saída */
+    }
+    .ft-card-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .ft-card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #444444;
+        margin: 0;
+        padding: 0;
+    }
+    .ft-card-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111111;
+        margin: 0;
+        padding: 0;
     }
 
-    /* Título principal */
-    h1 {
-        color: #003366 !important;  /* azul escuro Fromtherm */
-        font-weight: 800 !important;
-        letter-spacing: 0.02em;
-    }
-
-    /* Linha abaixo do título */
-    h1 + div {
-        border-bottom: 1px solid #dde2eb;
-        margin-bottom: 8px;
-        padding-bottom: 4px;
-    }
-
-    /* Sidebar com leve separação */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #dde2eb;
-    }
-
-    /* Esconder qualquer pequeno span/ícone no topo esquerdo
-       que esteja causando o "0" indesejado */
-    div[data-testid="stAppViewContainer"] > div:first-child span {
-        font-size: 0px !important;
-        color: transparent !important;
+    /* Animação de pulso suave (única para todos os ícones) */
+    @keyframes ft-pulse {
+        0%   { transform: scale(1);   opacity: 0.9; }
+        50%  { transform: scale(1.05); opacity: 1; }
+        100% { transform: scale(1);   opacity: 0.9; }
     }
     </style>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     """,
     unsafe_allow_html=True,
 )
@@ -70,7 +109,7 @@ st.sidebar.image(LOGO_URL, use_column_width=True)
 st.sidebar.title("FromTherm")
 
 # --- Título principal da página ---
-st.title("Máquina de Teste Fromtherm")
+st.title("Teste de Máquinas Fromtherm") # Título principal do dashboard
 
 # --- Pasta onde ficam os arquivos de histórico ---
 DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
@@ -93,7 +132,7 @@ def listar_arquivos_csv():
     for caminho in arquivos:
         nome = os.path.basename(caminho)
         linha = ""
-        data = None
+        data = datetime.min.date() # <--- ALTERADO: Usa data mínima para garantir que não seja None
         ano = None
         mes = None
         hora = ""
@@ -115,6 +154,7 @@ def listar_arquivos_csv():
                 mes = data.month
                 hora = f"{hora_str[:2]}:{hora_str[2:]}"
         except Exception:
+            # Se houver erro ao parsear, mantém data como datetime.min.date()
             pass
 
         info_arquivos.append(
@@ -151,111 +191,59 @@ if not todos_arquivos_info:
     st.stop()
 
 # --- Determinar o arquivo mais recente (por data + hora) ---
+# Garante que 'data' e 'hora' são comparáveis e não None
 arquivo_mais_recente = max(
-    todos_arquivos_info,
-    key=lambda x: (
-        x["data"] if x["data"] else datetime.min.date(),
-        x["hora"] or "",
-    ),
+    todos_arquivos_info, key=lambda x: (x["data"], x["hora"])
 )
 
-# =====================================================
-#  PAINEL: Última leitura registrada (cards com ícones)
-# =====================================================
-st.markdown("### Última Leitura Registrada")
+# --- Mapeamento de números de mês para nomes (para exibição) ---
+mes_label_map = {
+    1: "01 Janeiro", 2: "02 Fevereiro", 3: "03 Março", 4: "04 Abril",
+    5: "05 Maio", 6: "06 Junho", 7: "07 Julho", 8: "08 Agosto",
+    9: "09 Setembro", 10: "10 Outubro", 11: "11 Novembro", 12: "12 Dezembro"
+}
 
-# CSS + Bootstrap Icons para cards bonitos com animação nos ícones
-st.markdown(
-    """
-    <style>
-    .ft-card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 14px 16px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-        border-left: 4px solid #0d6efd;
-    }
-    .ft-card-icon {
-        font-size: 26px;
-        margin-right: 10px;
-        color: #0d6efd;
-        animation: ft-pulse 1.5s ease-in-out infinite;
-    }
-    .ft-card-content {
-        display: flex;
-        flex-direction: column;
-    }
-    .ft-card-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: #444444;
-        margin: 0;
-        padding: 0;
-    }
-    .ft-card-value {
-        font-size: 18px;
-        font-weight: 700;
-        color: #111111;
-        margin: 0;
-        padding: 0;
-    }
+# =========================
+#  TABS
+# =========================
+tab_hist, tab_graf = st.tabs(["📄 Históricos e Planilhas", "📊 Crie Seu Gráfico"])
 
-    @keyframes ft-pulse {
-        0%   { transform: scale(1);   opacity: 0.9; }
-        50%  { transform: scale(1.10); opacity: 1; }
-        100% { transform: scale(1);   opacity: 0.9; }
-    }
-    </style>
+# =========================
+#  TAB 1 - HISTÓRICOS E PLANILHAS
+# =========================
+with tab_hist:
+    st.subheader("Última Leitura Registrada")
 
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    """,
-    unsafe_allow_html=True,
-)
-
-try:
-    df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"]).copy()
-
-    df_ultimo.columns = [
-        "Date",
-        "Time",
-        "Ambiente",
-        "Entrada",
-        "Saída",
-        "ΔT",
-        "Tensão",
-        "Corrente",
-        "kcal/h",
-        "Vazão",
-        "kW Aquecimento",
-        "kW Consumo",
-        "COP",
-    ]
-
-    ultima_linha = df_ultimo.iloc[-1]
-
-    modelo_info = arquivo_mais_recente["modelo"] or "N/D"
-    op_info = arquivo_mais_recente["operacao"] or "N/D"
-    data_info = arquivo_mais_recente["data"].strftime("%d/%m/%Y") if arquivo_mais_recente["data"] else "N/D"
-    ano_info = arquivo_mais_recente["ano"] or "N/D"
-    hora_info = arquivo_mais_recente["hora"] or "N/D"
-
-    # Cabeçalho com informações do teste
+    # Informações do arquivo mais recente
     st.markdown(
-        f"**Modelo:** {modelo_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Operação (OP):** {op_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Data:** {data_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Ano:** {ano_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Hora:** {hora_info}",
-        unsafe_allow_html=True,
+        f"**Modelo:** {arquivo_mais_recente['modelo'] or 'N/D'} | "
+        f"**OP:** {arquivo_mais_recente['operacao'] or 'N/D'} | "
+        f"**Data:** {arquivo_mais_recente['data'].strftime('%d/%m/%Y')} | "
+        f"**Hora:** {arquivo_mais_recente['hora'] or 'N/D'}"
     )
 
+    st.markdown("---") # Separador visual
+
+    # Carregar a última linha do arquivo mais recente
+    try:
+        df_mais_recente = carregar_csv_caminho(arquivo_mais_recente["caminho"])
+        ultima_linha = df_mais_recente.iloc[-1]
+        ultima_linha.columns = [
+            "Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT",
+            "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento",
+            "kW Consumo", "COP"
+        ]
+    except Exception as e:
+        st.error(f"Erro ao carregar a última leitura do arquivo mais recente: {e}")
+        ultima_linha = pd.Series({
+            "Ambiente": "N/D", "Entrada": "N/D", "Saída": "N/D", "ΔT": "N/D",
+            "Tensão": "N/D", "Corrente": "N/D", "kcal/h": "N/D", "Vazão": "N/D",
+            "kW Aquecimento": "N/D", "kW Consumo": "N/D", "COP": "N/D"
+        })
+
+    # Display das métricas em 3 colunas
     col1, col2, col3 = st.columns(3)
 
-    # Coluna 1: temperaturas
     with col1:
         st.markdown(
             f"""
@@ -269,7 +257,6 @@ try:
             """,
             unsafe_allow_html=True,
         )
-
         st.markdown(
             f"""
             <div class="ft-card">
@@ -282,11 +269,10 @@ try:
             """,
             unsafe_allow_html=True,
         )
-
         st.markdown(
             f"""
             <div class="ft-card">
-              <i class="bi bi-arrow-up-circle ft-card-icon"></i>
+              <i class="bi bi-arrow-up-circle ft-card-icon red"></i>
               <div class="ft-card-content">
                 <p class="ft-card-title">T-Saída (°C)</p>
                 <p class="ft-card-value">{ultima_linha['Saída']}</p>
@@ -296,10 +282,11 @@ try:
             unsafe_allow_html=True,
         )
 
+    with col2:
         st.markdown(
             f"""
             <div class="ft-card">
-              <i class="bi bi-plus-slash-minus ft-card-icon"></i>
+              <i class="bi bi-arrow-down-up ft-card-icon"></i>
               <div class="ft-card-content">
                 <p class="ft-card-title">DIF (ΔT) (°C)</p>
                 <p class="ft-card-value">{ultima_linha['ΔT']}</p>
@@ -308,9 +295,6 @@ try:
             """,
             unsafe_allow_html=True,
         )
-
-    # Coluna 2: elétrica + vazão
-    with col2:
         st.markdown(
             f"""
             <div class="ft-card">
@@ -323,7 +307,6 @@ try:
             """,
             unsafe_allow_html=True,
         )
-
         st.markdown(
             f"""
             <div class="ft-card">
@@ -337,6 +320,7 @@ try:
             unsafe_allow_html=True,
         )
 
+    with col3:
         st.markdown(
             f"""
             <div class="ft-card">
@@ -349,7 +333,6 @@ try:
             """,
             unsafe_allow_html=True,
         )
-
         st.markdown(
             f"""
             <div class="ft-card">
@@ -362,9 +345,6 @@ try:
             """,
             unsafe_allow_html=True,
         )
-
-    # Coluna 3: potências e COP
-    with col3:
         st.markdown(
             f"""
             <div class="ft-card">
@@ -378,6 +358,10 @@ try:
             unsafe_allow_html=True,
         )
 
+    # Últimos dois cards em uma nova linha para manter o layout
+    col_kw_consumo, col_cop, _ = st.columns([1, 1, 1]) # Usar uma coluna vazia para alinhar
+
+    with col_kw_consumo:
         st.markdown(
             f"""
             <div class="ft-card">
@@ -391,6 +375,7 @@ try:
             unsafe_allow_html=True,
         )
 
+    with col_cop:
         st.markdown(
             f"""
             <div class="ft-card">
@@ -404,251 +389,175 @@ try:
             unsafe_allow_html=True,
         )
 
-except Exception as e:
-    st.error(f"Não foi possível gerar o painel da última leitura: {e}")
-    st.info("Verifique se o formato do CSV está conforme o padrão esperado.")
+    st.markdown("---") # Separador visual
 
-
-# --- TABS PRINCIPAIS ---
-tab_hist, tab_graf = st.tabs(["📄 Históricos e Planilhas", "📊 Crie Seu Gráfico"])
-
-
-# =========================
-#  TAB 1 - HISTÓRICOS
-# =========================
-with tab_hist:
-    st.sidebar.header("Filtros - Históricos")
-
-    modelos_disponiveis = sorted({a["modelo"] for a in todos_arquivos_info if a["modelo"]})
-    anos_disponiveis = sorted({a["ano"] for a in todos_arquivos_info if a["ano"]})
-    meses_disponiveis = sorted({a["mes"] for a in todos_arquivos_info if a["mes"]})
-    datas_disponiveis = sorted(
-        {a["data"] for a in todos_arquivos_info if a["data"]},
-        reverse=True,
+    st.subheader("Históricos Disponíveis")
+    st.markdown(
+        "Use os filtros abaixo para encontrar e baixar os históricos de testes."
     )
-    ops_disponiveis = sorted({a["operacao"] for a in todos_arquivos_info if a["operacao"]})
 
-    modelo_selecionado = st.sidebar.selectbox(
-        "Modelo:",
+    # --- Filtros para a lista de históricos ---
+    modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
+    modelo_selecionado = st.selectbox(
+        "Filtrar por Modelo:",
         ["Todos"] + modelos_disponiveis,
-        key="hist_modelo",
+        key="filtro_modelo",
     )
 
-    ano_selecionado = st.sidebar.selectbox(
-        "Ano:",
-        ["Todos"] + anos_disponiveis if anos_disponiveis else ["Todos"],
-        key="hist_ano",
+    arquivos_filtrados_modelo = [
+        a
+        for a in todos_arquivos_info
+        if modelo_selecionado == "Todos" or a["modelo"] == modelo_selecionado
+    ]
+
+    anos_disponiveis = sorted(list(set(a["ano"] for a in arquivos_filtrados_modelo if a["ano"])), reverse=True)
+    ano_selecionado = st.selectbox(
+        "Filtrar por Ano:",
+        ["Todos"] + anos_disponiveis,
+        key="filtro_ano",
     )
 
-    mes_label_map = {
-        1: "01 - Jan", 2: "02 - Fev", 3: "03 - Mar", 4: "04 - Abr",
-        5: "05 - Mai", 6: "06 - Jun", 7: "07 - Jul", 8: "08 - Ago",
-        9: "09 - Set", 10: "10 - Out", 11: "11 - Nov", 12: "12 - Dez",
-    }
+    arquivos_filtrados_ano = [
+        a
+        for a in arquivos_filtrados_modelo
+        if ano_selecionado == "Todos" or a["ano"] == ano_selecionado
+    ]
 
+    meses_disponiveis = sorted(list(set(a["mes"] for a in arquivos_filtrados_ano if a["mes"])))
     meses_labels = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis] if meses_disponiveis else ["Todos"]
-    mes_selecionado_label = st.sidebar.selectbox(
-        "Mês:",
+
+    mes_selecionado_label = st.selectbox(
+        "Filtrar por Mês:",
         meses_labels,
-        key="hist_mes",
+        key="filtro_mes",
     )
     mes_selecionado = None
     if mes_selecionado_label != "Todos":
         mes_selecionado = int(mes_selecionado_label.split(" ")[0])
 
-    data_selecionada = st.sidebar.date_input(
-        "Data específica (opcional):",
-        value=None,
-        min_value=min(datas_disponiveis) if datas_disponiveis else None,
-        max_value=max(datas_disponiveis) if datas_disponiveis else None,
-        key="hist_data",
+    arquivos_filtrados_mes = [
+        a
+        for a in arquivos_filtrados_ano
+        if mes_selecionado is None or a["mes"] == mes_selecionado
+    ]
+
+    ops_disponiveis = sorted(list(set(a["operacao"] for a in arquivos_filtrados_mes if a["operacao"])))
+    op_selecionada = st.selectbox(
+        "Filtrar por Operação (OP):",
+        ["Todos"] + ops_disponiveis,
+        key="filtro_op",
     )
 
-    operacao_selecionada = st.sidebar.selectbox(
-        "Operação (OP):",
-        ["Todas"] + ops_disponiveis,
-        key="hist_op",
+    arquivos_finais = [
+        a
+        for a in arquivos_filtrados_mes
+        if op_selecionada == "Todos" or a["operacao"] == op_selecionada
+    ]
+
+    # Ordenar os arquivos finais pelo mais recente primeiro
+    arquivos_finais = sorted(
+        arquivos_finais, key=lambda x: (x["data"], x["hora"]), reverse=True
     )
 
-    # Aplicar filtros em cadeia
-    arquivos_filtrados = todos_arquivos_info
-
-    if modelo_selecionado != "Todos":
-        arquivos_filtrados = [a for a in arquivos_filtrados if a["modelo"] == modelo_selecionado]
-
-    if ano_selecionado != "Todos":
-        arquivos_filtrados = [a for a in arquivos_filtrados if a["ano"] == ano_selecionado]
-
-    if mes_selecionado is not None:
-        arquivos_filtrados = [a for a in arquivos_filtrados if a["mes"] == mes_selecionado]
-
-    if data_selecionada:
-        arquivos_filtrados = [a for a in arquivos_filtrados if a["data"] == data_selecionada]
-
-    if operacao_selecionada != "Todas":
-        arquivos_filtrados = [a for a in arquivos_filtrados if a["operacao"] == operacao_selecionada]
-
-    arquivos_filtrados = sorted(
-        arquivos_filtrados,
-        key=lambda x: (x["data"] if x["data"] else datetime.min.date(), x["hora"] or ""),
-        reverse=True,
-    )
-
-    st.markdown("### Históricos Disponíveis")
-
-    if not arquivos_filtrados:
-        st.info("Nenhum arquivo encontrado com os filtros selecionados.")
+    if not arquivos_finais:
+        st.info("Nenhum histórico encontrado com os filtros aplicados.")
     else:
-        for i, arquivo in enumerate(arquivos_filtrados):
-            with st.expander(
-                f"{arquivo['modelo']} - Linha: {arquivo['linha']} - Data: {arquivo['data']} - "
-                f"Hora: {arquivo['hora']} - Operação: {arquivo['operacao']}"
-            ):
-                try:
-                    df_dados = carregar_csv_caminho(arquivo["caminho"])
+        st.markdown(f"**{len(arquivos_finais)}** históricos encontrados.")
+        for i, arquivo in enumerate(arquivos_finais):
+            data_nome = arquivo["data"].strftime("%Y%m%d")
+            hora_nome = arquivo["hora"].replace(":", "")
 
-                    df_dados.columns = [
-                        "Date",
-                        "Time",
-                        "Ambiente",
-                        "Entrada",
-                        "Saída",
-                        "ΔT",
-                        "Tensão",
-                        "Corrente",
-                        "kcal/h",
-                        "Vazão",
-                        "kW Aquecimento",
-                        "kW Consumo",
-                        "COP",
+            st.markdown(
+                f"**Arquivo:** `{arquivo['nome_arquivo']}` | "
+                f"**Modelo:** {arquivo['modelo'] or 'N/D'} | "
+                f"**OP:** {arquivo['operacao'] or 'N/D'} | "
+                f"**Data:** {arquivo['data'].strftime('%d/%m/%Y')} | "
+                f"**Hora:** {arquivo['hora'] or 'N/D'}"
+            )
+
+            try:
+                df_dados = carregar_csv_caminho(arquivo["caminho"])
+                # Renomear colunas para melhor visualização
+                df_dados.columns = [
+                    "Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT",
+                    "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento",
+                    "kW Consumo", "COP"
+                ]
+                st.dataframe(df_dados, use_container_width=True)
+
+                # Botões de download
+                output_excel = BytesIO()
+                with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
+                    df_dados.to_excel(writer, index=False, sheet_name="Dados")
+                    workbook = writer.book
+                    worksheet = writer.sheets["Dados"]
+
+                    # Adicionar informações do cabeçalho
+                    header_info = [
+                        f"Modelo: {arquivo['modelo'] or 'N/D'}",
+                        f"Operação (OP): {arquivo['operacao'] or 'N/D'}",
+                        f"Data: {arquivo['data'].strftime('%d/%m/%Y')}",
+                        f"Hora: {arquivo['hora'] or 'N/D'}",
                     ]
+                    for r, info in enumerate(header_info):
+                        worksheet.write(r, 0, info)
 
-                    st.dataframe(df_dados, use_container_width=True)
-
-                    data_nome = arquivo["data"].strftime("%d-%m-%Y") if arquivo["data"] else "data"
-                    hora_nome = (arquivo["hora"] or "hora").replace(":", "-")
-
-                    output_excel = BytesIO()
-                    with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-                        df_dados.to_excel(writer, index=False, sheet_name="Dados")
-                        workbook = writer.book
-                        worksheet = writer.sheets["Dados"]
-
-                        title_format = workbook.add_format(
-                            {
-                                "bold": True,
-                                "font_size": 14,
-                                "font_color": "white",
-                                "align": "center",
-                                "valign": "vcenter",
-                                "bg_color": "#003366",
-                            }
-                        )
-                        header_info_label = workbook.add_format(
-                            {
-                                "bold": True,
-                                "font_color": "black",
-                                "align": "left",
-                            }
-                        )
-                        header_info_value = workbook.add_format(
-                            {"font_size": 11, "font_color": "black", "align": "left"}
-                        )
-                        header_data_format = workbook.add_format(
-                            {
-                                "bold": True,
-                                "font_color": "white",
-                                "bg_color": "#003366",
-                                "border": 1,
-                                "align": "center",
-                            }
-                        )
-                        cell_data_format = workbook.add_format({"border": 1})
-
-                        col_count = len(df_dados.columns)
-                        last_col_letter = chr(ord("A") + col_count - 1)
-                        worksheet.merge_range(
-                            f"A1:{last_col_letter}1",
-                            "Planilha Teste de Máquinas Fromtherm",
-                            title_format,
-                        )
-
-                        data_excel = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else ""
-                        hora_excel = arquivo["hora"] or ""
-                        oper_excel = arquivo["operacao"] or ""
-                        modelo_excel = arquivo["modelo"] or ""
-                        linha_excel = arquivo["linha"] or ""
-
-                        info_labels = ["Data", "Hora", "Operação", "Modelo", "Linha"]
-                        info_values = [data_excel, hora_excel, oper_excel, modelo_excel, linha_excel]
-
-                        for idx, (label, value) in enumerate(zip(info_labels, info_values)):
-                            row = 2 + idx
-                            worksheet.write(row, 0, label, header_info_label)
-                            worksheet.write(row, 1, value, header_info_value)
-
-                        worksheet.set_column(0, 0, 15)
-                        worksheet.set_column(1, 1, 20)
-
-                        header_row = 8
-                        for col, col_name in enumerate(df_dados.columns):
-                            worksheet.write(header_row, col, col_name, header_data_format)
-
-                        for row in range(len(df_dados)):
-                            for col in range(len(df_dados.columns)):
-                                worksheet.write(
-                                    row + header_row + 1,
-                                    col,
-                                    df_dados.iloc[row, col],
-                                    cell_data_format,
-                                )
-
-                        for col_idx, col_name in enumerate(df_dados.columns):
-                            if "kW" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 15)
-                            elif "Ambiente" in col_name or "Corrente" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 10)
-                            elif "Date" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 10)
-                            elif "Time" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 8)
-                            else:
-                                worksheet.set_column(col_idx, col_idx, 12)
-
-                    output_excel.seek(0)
-                    st.download_button(
-                        label="Exportar para Excel",
-                        data=output_excel,
-                        file_name=(
-                            f"Maquina_{arquivo['modelo'] or 'N_D'}_"
-                            f"{arquivo['operacao'] or 'OP'}_"
-                            f"{data_nome}_{hora_nome}.xlsx"
-                        ),
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key=f"excel_download_{i}",
+                    # Formato para o cabeçalho da tabela
+                    header_format = workbook.add_format(
+                        {"bold": True, "bg_color": "#D7E4BC", "border": 1}
                     )
+                    # Formato para os dados da tabela
+                    cell_format = workbook.add_format({"border": 1})
 
-                    pdf_buffer = BytesIO()
-                    # Aqui você deve manter sua função criar_pdf_paisagem original;
-                    # para simplificar, assumo que ela já está definida acima.
-                    # pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
+                    # Escrever o cabeçalho da tabela após as informações
+                    header_row = len(header_info) + 1
+                    for col_num, value in enumerate(df_dados.columns.values):
+                        worksheet.write(header_row, col_num, value, header_format)
 
-                    # Se não quiser mexer no PDF agora, pode comentar as 3 linhas abaixo:
-                    # st.download_button(
-                    #     label="Exportar para PDF",
-                    #     data=pdf_buffer,
-                    #     file_name=(
-                    #         f"Maquina_{arquivo['modelo'] or 'N_D'}_"
-                    #         f"{arquivo['operacao'] or 'OP'}_"
-                    #         f"{data_nome}_{hora_nome}.pdf"
-                    #     ),
-                    #     mime="application/pdf",
-                    #     key=f"pdf_download_{i}",
-                    # )
+                    # Escrever os dados da tabela
+                    for row_num, row_data in df_dados.iterrows():
+                        for col_num, value in enumerate(row_data):
+                            worksheet.write(row_num + header_row + 1, col_num, value, cell_format)
 
-                except Exception as e:
-                    st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
-                    st.info("Verifique se o arquivo CSV está no formato correto (separado por ponto e vírgula ';' ou vírgula ',').")
+                    # Ajustar largura das colunas
+                    for col_idx, col_name in enumerate(df_dados.columns):
+                        max_len = max(df_dados[col_name].astype(str).map(len).max(), len(col_name))
+                        worksheet.set_column(col_idx, col_idx, max_len + 2)
+
+
+                output_excel.seek(0)
+                st.download_button(
+                    label="Exportar para Excel",
+                    data=output_excel,
+                    file_name=(
+                        f"Maquina_{arquivo['modelo'] or 'N_D'}_"
+                        f"{arquivo['operacao'] or 'OP'}_"
+                        f"{data_nome}_{hora_nome}.xlsx"
+                    ),
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"excel_download_{i}",
+                )
+
+                # A função criar_pdf_paisagem não está definida no código fornecido.
+                # Se você quiser o download de PDF, precisará definir essa função.
+                # Por enquanto, vou deixar o botão de PDF comentado para evitar erros.
+                # pdf_buffer = BytesIO()
+                # pdf_buffer = criar_pdf_paisagem(df_dados, arquivo) # Descomente e defina esta função
+                # st.download_button(
+                #     label="Exportar para PDF",
+                #     data=pdf_buffer,
+                #     file_name=(
+                #         f"Maquina_{arquivo['modelo'] or 'N_D'}_"
+                #         f"{arquivo['operacao'] or 'OP'}_"
+                #         f"{data_nome}_{hora_nome}.pdf"
+                #     ),
+                #     mime="application/pdf",
+                #     key=f"pdf_download_{i}",
+                # )
+
+            except Exception as e:
+                st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
+                st.info("Verifique se o arquivo CSV está no formato correto (separado por ponto e vírgula ';' ou vírgula ',').")
 
 
 # =========================
