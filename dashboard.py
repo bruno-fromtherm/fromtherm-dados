@@ -502,40 +502,81 @@ with tab_graf:
     st.subheader("Crie Seu Gráfico")
 
     st.markdown(
-        "Selecione o **Modelo**, a **Operação (OP)** e os itens que deseja visualizar no gráfico."
+        "Selecione o **Modelo**, **Ano**, **Mês**, **Operação (OP)** e os itens que deseja visualizar no gráfico."
     )
 
-    # Opções de modelo e OP
-    modelos_disponiveis_graf = sorted({a["modelo"] for a in todos_arquivos_info if a["modelo"]})
-    ops_disponiveis_graf = sorted({a["operacao"] for a in todos_arquivos_info if a["operacao"]})
+    # Obter todos os modelos disponíveis
+    modelos_disponiveis_graf = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
 
-    col1, col2 = st.columns(2)
+    # Seleção de Modelo
+    modelo_graf = st.selectbox(
+        "Modelo:",
+        modelos_disponiveis_graf if modelos_disponiveis_graf else ["Nenhum modelo disponível"],
+        key="graf_modelo",
+    )
 
-    with col1:
-        modelo_graf = st.selectbox(
-            "Modelo:",
-            modelos_disponiveis_graf if modelos_disponiveis_graf else ["Nenhum modelo disponível"],
-            key="graf_modelo",
-        )
+    # Filtrar arquivos baseados no modelo selecionado
+    arquivos_por_modelo = [a for a in todos_arquivos_info if a["modelo"] == modelo_graf]
 
-    with col2:
-        op_graf = st.selectbox(
-            "Operação (OP):",
-            ops_disponiveis_graf if ops_disponiveis_graf else ["Nenhuma OP disponível"],
-            key="graf_op",
-        )
+    # Obter anos disponíveis para o modelo selecionado
+    anos_disponiveis_graf = sorted(list(set(a["ano"] for a in arquivos_por_modelo if a["ano"])))
 
-    # Filtrar arquivo específico para esse modelo + OP
+    # Seleção de Ano
+    ano_graf = st.selectbox(
+        "Ano:",
+        anos_disponiveis_graf if anos_disponiveis_graf else ["Nenhum ano disponível"],
+        key="graf_ano",
+    )
+
+    # Filtrar arquivos baseados no modelo e ano selecionados
+    arquivos_por_modelo_ano = [a for a in arquivos_por_modelo if a["ano"] == ano_graf]
+
+    # Obter meses disponíveis para o modelo e ano selecionados
+    meses_disponiveis_graf = sorted(list(set(a["mes"] for a in arquivos_por_modelo_ano if a["mes"])))
+    meses_labels_graf = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis_graf] if meses_disponiveis_graf else ["Todos"]
+
+    # Seleção de Mês
+    mes_graf_label = st.selectbox(
+        "Mês:",
+        meses_labels_graf,
+        key="graf_mes",
+    )
+    mes_graf = None
+    if mes_graf_label != "Todos":
+        mes_graf = int(mes_graf_label.split(" ")[0])
+
+    # Filtrar arquivos baseados no modelo, ano e mês selecionados
+    arquivos_por_modelo_ano_mes = [a for a in arquivos_por_modelo_ano if a["mes"] == mes_graf or mes_graf is None]
+
+    # Obter OPs disponíveis para o modelo, ano e mês selecionados
+    ops_disponiveis_graf = sorted(list(set(a["operacao"] for a in arquivos_por_modelo_ano_mes if a["operacao"])))
+
+    # Determinar valor padrão para OP
+    default_op_index = 0
+    if len(ops_disponiveis_graf) == 1:
+        default_op_index = ops_disponiveis_graf.index(ops_disponiveis_graf[0])
+
+    op_graf = st.selectbox(
+        "Operação (OP):",
+        ops_disponiveis_graf if ops_disponiveis_graf else ["Nenhuma OP disponível"],
+        index=default_op_index if ops_disponiveis_graf else 0, # Seleciona a única OP se houver, ou a primeira
+        key="graf_op",
+    )
+
+    # Filtrar arquivo específico para esse modelo + ano + mês + OP
     arquivo_escolhido = None
     for a in todos_arquivos_info:
-        if a["modelo"] == modelo_graf and a["operacao"] == op_graf:
+        if (a["modelo"] == modelo_graf and 
+            a["ano"] == ano_graf and 
+            (a["mes"] == mes_graf or mes_graf is None) and
+            a["operacao"] == op_graf):
             arquivo_escolhido = a
             break
 
-    if not modelos_disponiveis_graf or not ops_disponiveis_graf:
+    if not modelos_disponiveis_graf:
         st.info("Ainda não há dados suficientes para criar gráficos.")
     elif arquivo_escolhido is None:
-        st.warning("Não foi encontrado um arquivo que combine este Modelo e esta OP.")
+        st.warning("Não foi encontrado um arquivo que combine este Modelo, Ano, Mês e Operação.")
     else:
         st.markdown(
             f"Arquivo selecionado: **{arquivo_escolhido['nome_arquivo']}**"
@@ -614,7 +655,7 @@ with tab_graf:
                     x="DateTime",
                     y="Valor",
                     color="Variável",
-                    title=f"Gráfico - Modelo {modelo_graf} | {op_graf}",
+                    title=f"Gráfico - Modelo {modelo_graf} | OP {op_graf} | {ano_graf}/{mes_graf_label.split(' ')[0]}",
                     markers=True,
                 )
 
