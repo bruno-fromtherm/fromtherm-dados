@@ -317,7 +317,7 @@ with tab_hist:
 
     # --- Listar cada arquivo filtrado ---
     for i, arquivo in enumerate(arquivos_filtrados):
-        data_str = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else "sem data"
+        data_str = arquivo["data"].strftime("%d/%m/%mY") if arquivo["data"] else "sem data"
 
         # Formatações para nomes de arquivo (download)
         if arquivo["data"]:
@@ -658,6 +658,9 @@ with tab_graf:
                     title=f"Gráfico - Modelo {modelo_graf} | OP {op_graf} | {ano_graf}/{mes_graf_label.split(' ')[0]}",
                     markers=True,
                 )
+
+                # --- AQUI ESTÁ A MUDANÇA PARA O EIXO Y COMEÇAR EM 0 ---
+                fig.update_yaxes(rangemode="tozero") # Garante que o eixo Y comece em 0
 
                 fig.update_layout(
                     xaxis_title="Tempo",
