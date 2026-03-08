@@ -108,8 +108,62 @@ arquivo_mais_recente = max(
     ),
 )
 
-# --- PAINEL: Última leitura registrada ---
+# =====================================================
+#  PAINEL: Última leitura registrada (cards com ícones)
+# =====================================================
 st.markdown("### Última Leitura Registrada")
+
+# CSS + Bootstrap Icons para cards bonitos com animação nos ícones
+st.markdown(
+    """
+    <style>
+    .ft-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        border-left: 4px solid #0d6efd;
+    }
+    .ft-card-icon {
+        font-size: 26px;
+        margin-right: 10px;
+        color: #0d6efd;
+        animation: ft-pulse 1.5s ease-in-out infinite;
+    }
+    .ft-card-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .ft-card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #444444;
+        margin: 0;
+        padding: 0;
+    }
+    .ft-card-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111111;
+        margin: 0;
+        padding: 0;
+    }
+
+    @keyframes ft-pulse {
+        0%   { transform: scale(1);   opacity: 0.9; }
+        50%  { transform: scale(1.10); opacity: 1; }
+        100% { transform: scale(1);   opacity: 0.9; }
+    }
+    </style>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    """,
+    unsafe_allow_html=True,
+)
 
 try:
     df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"]).copy()
@@ -138,32 +192,166 @@ try:
     ano_info = arquivo_mais_recente["ano"] or "N/D"
     hora_info = arquivo_mais_recente["hora"] or "N/D"
 
+    # Cabeçalho com informações do teste
     st.markdown(
         f"**Modelo:** {modelo_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
         f"**Operação (OP):** {op_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
         f"**Data:** {data_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
         f"**Ano:** {ano_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Hora:** {hora_info}"
+        f"**Hora:** {hora_info}",
+        unsafe_allow_html=True,
     )
 
     col1, col2, col3 = st.columns(3)
 
+    # Coluna 1: temperaturas
     with col1:
-        st.metric("🌡️ T-Ambiente (°C)", f"{ultima_linha['Ambiente']}")
-        st.metric("🌊 T-Entrada (°C)", f"{ultima_linha['Entrada']}")
-        st.metric("💧 T-Saída (°C)", f"{ultima_linha['Saída']}")
-        st.metric("➗ DIF (ΔT) (°C)", f"{ultima_linha['ΔT']}")
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-thermometer-half ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">T-Ambiente (°C)</p>
+                <p class="ft-card-value">{ultima_linha['Ambiente']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-arrow-down-circle ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">T-Entrada (°C)</p>
+                <p class="ft-card-value">{ultima_linha['Entrada']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-arrow-up-circle ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">T-Saída (°C)</p>
+                <p class="ft-card-value">{ultima_linha['Saída']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-plus-slash-minus ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">DIF (ΔT) (°C)</p>
+                <p class="ft-card-value">{ultima_linha['ΔT']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Coluna 2: elétrica + vazão
     with col2:
-        st.metric("⚡ Tensão (V)", f"{ultima_linha['Tensão']}")
-        st.metric("🔌 Corrente (A)", f"{ultima_linha['Corrente']}")
-        st.metric("🔥 kcal/h", f"{ultima_linha['kcal/h']}")
-        st.metric("💨 Vazão", f"{ultima_linha['Vazão']}")
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-lightning-charge ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">Tensão (V)</p>
+                <p class="ft-card-value">{ultima_linha['Tensão']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-lightning ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">Corrente (A)</p>
+                <p class="ft-card-value">{ultima_linha['Corrente']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-fire ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">kcal/h</p>
+                <p class="ft-card-value">{ultima_linha['kcal/h']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-droplet ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">Vazão</p>
+                <p class="ft-card-value">{ultima_linha['Vazão']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Coluna 3: potências e COP
     with col3:
-        st.metric("♨️ kW Aquecimento", f"{ultima_linha['kW Aquecimento']}")
-        st.metric("💡 kW Consumo", f"{ultima_linha['kW Consumo']}")
-        st.metric("📈 COP", f"{ultima_linha['COP']}")
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-sun ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">kW Aquecimento</p>
+                <p class="ft-card-value">{ultima_linha['kW Aquecimento']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-plug ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">kW Consumo</p>
+                <p class="ft-card-value">{ultima_linha['kW Consumo']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="ft-card">
+              <i class="bi bi-speedometer2 ft-card-icon"></i>
+              <div class="ft-card-content">
+                <p class="ft-card-title">COP</p>
+                <p class="ft-card-value">{ultima_linha['COP']}</p>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 except Exception as e:
     st.error(f"Não foi possível gerar o painel da última leitura: {e}")
@@ -275,104 +463,98 @@ with tab_hist:
         )
 
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            name="TitleCenter",
+        style_normal = styles["Normal"]
+
+        style_title = ParagraphStyle(
+            "TitleCustom",
             parent=styles["Title"],
-            alignment=1,
-            fontSize=18,
-            spaceAfter=16,
-        )
-        subtitle_style = ParagraphStyle(
-            name="SubTitleLeft",
-            parent=styles["Heading2"],
-            alignment=0,
-            fontSize=12,
-            spaceAfter=8,
-        )
-        normal_left_bold = ParagraphStyle(
-            name="NormalLeftBold",
-            parent=styles["Normal"],
-            alignment=0,
-            fontSize=10,
-            leading=14,
             fontName="Helvetica-Bold",
-        )
-        normal_center = ParagraphStyle(
-            name="NormalCenter",
-            parent=styles["Normal"],
+            fontSize=18,
             alignment=1,
+            textColor=colors.HexColor("#003366"),
+        )
+
+        style_header_info = ParagraphStyle(
+            "HeaderInfo",
+            parent=style_normal,
+            fontSize=11,
+            leading=14,
+            textColor=colors.black,
+        )
+
+        style_table_header = ParagraphStyle(
+            "TableHeader",
+            parent=style_normal,
             fontSize=9,
+            textColor=colors.white,
         )
 
-        story = []
-
-        story.append(Paragraph("Planilha Teste de Máquinas Fromtherm", title_style))
-        story.append(Spacer(1, 6))
-
-        data_str = meta["data"].strftime("%d/%m/%Y") if meta["data"] else "N/D"
-        hora_str = meta["hora"] or "N/D"
-        operacao_str = meta["operacao"] or "N/D"
-        modelo_str = meta["modelo"] or "N/D"
-        linha_str = meta["linha"] or "N/D"
-
-        story.append(Paragraph(f"<b>Data:</b> {data_str}", normal_left_bold))
-        story.append(Paragraph(f"<b>Hora:</b> {hora_str}", normal_left_bold))
-        story.append(Paragraph(f"<b>Operação:</b> {operacao_str}", normal_left_bold))
-        story.append(Paragraph(f"<b>Modelo:</b> {modelo_str}", normal_left_bold))
-        story.append(Paragraph(f"<b>Linha:</b> {linha_str}", normal_left_bold))
-        story.append(Spacer(1, 10))
-
-        story.append(Paragraph("Dados da Operação:", subtitle_style))
-        story.append(Spacer(1, 6))
-
-        cols = list(df_dados.columns)
-        data_rows = df_dados.values.tolist()
-        table_data = [cols] + data_rows
-
-        total_width = 780
-        col_widths = []
-        for col_name in cols:
-            if "kW" in col_name:
-                col_widths.append(90)
-            elif "Ambiente" in col_name or "Corrente" in col_name:
-                col_widths.append(70)
-            elif "Date" in col_name:
-                col_widths.append(70)
-            elif "Time" in col_name:
-                col_widths.append(60)
-            else:
-                col_widths.append(total_width / len(cols))
-
-        table = Table(table_data, colWidths=col_widths)
-
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004A99")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, 0), 9),
-                    ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                    ("FONTSIZE", (0, 1), (-1, -1), 8),
-                ]
-            )
+        style_table_cell = ParagraphStyle(
+            "TableCell",
+            parent=style_normal,
+            fontSize=8,
+            textColor=colors.black,
         )
 
-        story.append(table)
-        doc.build(story)
+        elementos = []
+
+        elementos.append(Paragraph("Planilha Teste de Máquinas Fromtherm", style_title))
+        elementos.append(Spacer(1, 12))
+
+        data_str_pdf = meta["data"].strftime("%d/%m/%Y") if meta["data"] else ""
+        hora_str_pdf = meta["hora"] or ""
+        oper_str_pdf = meta["operacao"] or ""
+        modelo_str_pdf = meta["modelo"] or ""
+        linha_str_pdf = meta["linha"] or ""
+
+        info_text = (
+            f"<b>Data:</b> {data_str_pdf} &nbsp;&nbsp;&nbsp; "
+            f"<b>Hora:</b> {hora_str_pdf} &nbsp;&nbsp;&nbsp; "
+            f"<b>Operação:</b> {oper_str_pdf} &nbsp;&nbsp;&nbsp; "
+            f"<b>Modelo:</b> {modelo_str_pdf} &nbsp;&nbsp;&nbsp; "
+            f"<b>Linha:</b> {linha_str_pdf}"
+        )
+        elementos.append(Paragraph(info_text, style_header_info))
+        elementos.append(Spacer(1, 12))
+
+        dados_tabela = []
+        header_row = [Paragraph(str(col), style_table_header) for col in df_dados.columns]
+        dados_tabela.append(header_row)
+
+        for _, row in df_dados.iterrows():
+            linha = [Paragraph(str(cell), style_table_cell) for cell in row]
+            dados_tabela.append(linha)
+
+        tabela = Table(dados_tabela, repeatRows=1)
+        tabela_style = TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003366")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ]
+        )
+        tabela.setStyle(tabela_style)
+
+        elementos.append(tabela)
+        doc.build(elementos)
         buffer.seek(0)
         return buffer
 
-    for i, arquivo in enumerate(arquivos_filtrados, start=1):
+    # Lista de arquivos
+    for i, arquivo in enumerate(arquivos_filtrados):
         with st.expander(
-            f"{arquivo['modelo']} - Linha: {arquivo['linha']} - Data: "
-            f"{arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else 'N/D'} "
-            f"- Hora: {arquivo['hora'] or 'N/D'} - Operação: {arquivo['operacao'] or 'N/D'}"
+            f"{arquivo['nome_arquivo']}  |  Modelo: {arquivo['modelo']}  |  OP: {arquivo['operacao']}  |  Data: {arquivo['data']}  |  Hora: {arquivo['hora']}",
+            expanded=False,
         ):
             try:
                 df_dados = carregar_csv_caminho(arquivo["caminho"]).copy()
+
                 df_dados.columns = [
                     "Date",
                     "Time",
@@ -391,69 +573,51 @@ with tab_hist:
 
                 st.dataframe(df_dados, use_container_width=True)
 
-                data_nome = arquivo["data"].strftime("%d-%m-%Y") if arquivo["data"] else "semdata"
-                hora_nome = (arquivo["hora"] or "").replace(":", "") + "hs"
+                data_nome = arquivo["data"].strftime("%d-%m-%Y") if arquivo["data"] else "sem-data"
+                hora_nome = (arquivo["hora"] or "sem-hora").replace(":", "-") + "hs"
 
                 output_excel = BytesIO()
                 with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-                    df_dados.to_excel(writer, sheet_name="Dados", index=False, startrow=9)
+                    df_dados.to_excel(writer, sheet_name="Dados", index=False)
+
                     workbook = writer.book
                     worksheet = writer.sheets["Dados"]
-
-                    azul_cabecalho = "#004A99"
 
                     title_format = workbook.add_format(
                         {
                             "bold": True,
-                            "font_size": 16,
+                            "font_size": 18,
                             "align": "center",
                             "valign": "vcenter",
-                            "bg_color": azul_cabecalho,
                             "font_color": "white",
+                            "bg_color": "#003366",
                         }
                     )
                     header_info_label = workbook.add_format(
                         {
                             "bold": True,
-                            "bg_color": "#E6F0FF",
+                            "font_size": 11,
                             "font_color": "black",
-                            "border": 1,
-                            "align": "right",
+                            "align": "left",
                         }
                     )
                     header_info_value = workbook.add_format(
-                        {
-                            "bg_color": "#F7FBFF",
-                            "font_color": "black",
-                            "border": 1,
-                            "align": "left",
-                        }
+                        {"font_size": 11, "font_color": "black", "align": "left"}
                     )
                     header_data_format = workbook.add_format(
                         {
                             "bold": True,
-                            "bg_color": azul_cabecalho,
                             "font_color": "white",
+                            "bg_color": "#003366",
                             "border": 1,
                             "align": "center",
                         }
                     )
-                    cell_data_format = workbook.add_format(
-                        {
-                            "border": 1,
-                            "align": "center",
-                            "bg_color": "#F7FBFF",
-                        }
-                    )
+                    cell_data_format = workbook.add_format({"border": 1})
 
-                    num_cols = len(df_dados.columns)
-                    merge_cols = max(num_cols, 10)
-                    last_col_letter = ""
-                    idx_temp = merge_cols - 1
-                    while idx_temp >= 0:
-                        last_col_letter = chr(ord("A") + (idx_temp % 26)) + last_col_letter
-                        idx_temp = idx_temp // 26 - 1
-
+                    # Mesclar título
+                    col_count = len(df_dados.columns)
+                    last_col_letter = chr(ord("A") + col_count - 1)
                     worksheet.merge_range(
                         f"A1:{last_col_letter}1",
                         "Planilha Teste de Máquinas Fromtherm",
@@ -562,6 +726,12 @@ with tab_graf:
     )
 
     arquivos_por_modelo_ano = [a for a in arquivos_por_modelo if a["ano"] == ano_graf]
+
+    mes_label_map = {
+        1: "01 - Jan", 2: "02 - Fev", 3: "03 - Mar", 4: "04 - Abr",
+        5: "05 - Mai", 6: "06 - Jun", 7: "07 - Jul", 8: "08 - Ago",
+        9: "09 - Set", 10: "10 - Out", 11: "11 - Nov", 12: "12 - Dez",
+    }
 
     meses_disponiveis_graf = sorted(list(set(a["mes"] for a in arquivos_por_modelo_ano if a["mes"])))
     meses_labels_graf = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis_graf] if meses_disponiveis_graf else ["Todos"]
