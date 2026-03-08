@@ -3,29 +3,28 @@ import pandas as pd
 import os
 import glob
 from datetime import datetime
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from io import BytesIO
 import plotly.express as px
 
 # --- Configuração básica da página ---
-st.set_page_config(layout="wide", page_title="Teste de Máquinas Fromtherm")  # Título da aba do navegador
+st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
 
 # =========================
-#  CSS GLOBAL (correção do "0", cards com animação suave)
+#  CSS GLOBAL
 # =========================
 st.markdown(
     """
     <style>
-    /* REMOÇÃO TENTATIVA DO "0" TEIMOSO (mas sem exagero) */
-    div[data-testid="stAppViewContainer"] > div:first-child span {
-        font-size: 0px !important;
-        color: transparent !important;
+    .stApp { background-color: #f4f6f9; }
+    .main > div {
+        background-color: #ffffff;
+        padding: 10px 25px 40px 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-top: 5px;
     }
-
-    /* Estilo dos cards de métricas */
+    h1 { color: #003366 !important; font-weight: 800 !important; }
+    
+    /* Estilos dos Cards Customizados */
     .ft-card {
         background: #ffffff;
         border-radius: 12px;
@@ -34,324 +33,127 @@ st.markdown(
         display: flex;
         align-items: center;
         margin-bottom: 10px;
-        border-left: 4px solid #0d6efd; /* Cor padrão da borda */
+        border-left: 4px solid #0d6efd;
     }
     .ft-card-icon {
         font-size: 26px;
         margin-right: 10px;
-        color: #0d6efd; /* Cor padrão do ícone */
-        animation: ft-pulse 1.5s ease-in-out infinite; /* Animação de pulso suave para todos */
+        color: #0d6efd;
+        animation: ft-pulse 1.5s ease-in-out infinite;
     }
-    .ft-card-icon.red {
-        color: #dc3545; /* Cor vermelha para T-Saída */
-    }
-    .ft-card-content {
-        display: flex;
-        flex-direction: column;
-    }
-    .ft-card-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: #444444;
-        margin: 0;
-        padding: 0;
-    }
-    .ft-card-value {
-        font-size: 18px;
-        font-weight: 700;
-        color: #111111;
-        margin: 0;
-        padding: 0;
-    }
+    .ft-card-content { display: flex; flex-direction: column; }
+    .ft-card-title { font-size: 13px; font-weight: 600; color: #444444; margin: 0; }
+    .ft-card-value { font-size: 18px; font-weight: 700; color: #111111; margin: 0; }
 
-    /* Animação de pulso suave (única para todos os ícones) */
     @keyframes ft-pulse {
         0%   { transform: scale(1);   opacity: 0.9; }
-        50%  { transform: scale(1.05); opacity: 1; }
+        50%  { transform: scale(1.10); opacity: 1; }
         100% { transform: scale(1);   opacity: 0.9; }
     }
     </style>
-
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net">
     """,
     unsafe_allow_html=True,
 )
 
-# --- Logo e cabeçalho na barra lateral ---
-LOGO_URL = "https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png"
-st.sidebar.image(LOGO_URL, use_column_width=True)
+# --- Sidebar ---
+LOGO_URL = "https://fromtherm.com.br"
+st.sidebar.image(LOGO_URL, use_container_width=True)
 st.sidebar.title("FromTherm")
 
-# --- Título principal da página ---
-st.title("Teste de Máquinas Fromtherm")  # Título principal do dashboard
+# --- Título ---
+st.title("Máquina de Teste Fromtherm")
 
-# --- Pasta onde ficam os arquivos de histórico ---
+# --- Pasta de dados ---
 DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 
-
-# --- Função para listar arquivos CSV localmente ---
-@st.cache_data(ttl=10)  # TTL curto para ver arquivos novos rapidamente
+@st.cache_data(ttl=10)
 def listar_arquivos_csv():
-    """
-    Lista todos os arquivos .csv na pasta DADOS_DIR
-    e extrai informações básicas do nome:
-    historico_L1_20260303_2140_OP1234_FT185.csv
-    """
     if not os.path.exists(DADOS_DIR):
         return []
-
     arquivos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
     info_arquivos = []
-
     for caminho in arquivos:
         nome = os.path.basename(caminho)
-        linha = ""
-        data = None
-        ano = None
-        mes = None
-        hora = ""
-        operacao = ""
-        modelo = ""
-
         try:
             partes = nome.replace(".csv", "").split("_")
-            # esperado: historico_L1_20260303_2140_OP1234_FT185.csv
             if len(partes) >= 6:
-                linha = partes[1]             # L1
-                data_str = partes[2]          # 20260303
-                hora_str = partes[3]          # 2140
-                operacao = partes[4]          # OP1234
-                modelo = partes[5]            # FT185 ou similar
-
-                data = datetime.strptime(data_str, "%Y%m%d").date()
-                ano = data.year
-                mes = data.month
-                hora = f"{hora_str[:2]}:{hora_str[2:]}"
-        except Exception:
-            pass
-
-        info_arquivos.append(
-            {
-                "nome_arquivo": nome,
-                "caminho": caminho,
-                "linha": linha,
-                "data": data,
-                "ano": ano,
-                "mes": mes,
-                "hora": hora,
-                "operacao": operacao,
-                "modelo": modelo,
-            }
-        )
-
+                data = datetime.strptime(partes[2], "%Y%m%d").date()
+                info_arquivos.append({
+                    "nome_arquivo": nome, "caminho": caminho, "linha": partes[1],
+                    "data": data, "ano": data.year, "mes": data.month,
+                    "hora": f"{partes[3][:2]}:{partes[3][2:]}",
+                    "operacao": partes[4], "modelo": partes[5]
+                })
+        except: pass
     return info_arquivos
 
-
-# --- Função para carregar um CSV (ponto e vírgula ou vírgula) ---
-def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
+def carregar_csv_caminho(caminho):
     try:
-        return pd.read_csv(caminho, sep=";", engine="python")
-    except Exception:
-        return pd.read_csv(caminho, sep=",", engine="python")
+        df = pd.read_csv(caminho, sep=";", engine="python")
+        if len(df.columns) < 5: raise Exception
+    except:
+        df = pd.read_csv(caminho, sep=",", engine="python")
+    
+    df.columns = ["Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT", "Tensão", 
+                  "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"]
+    
+    # Converter colunas para numérico (trata vírgula decimal)
+    cols_num = ["Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente", "Vazão", "COP", "kW Consumo"]
+    for col in cols_num:
+        if df[col].dtype == 'object':
+            df[col] = df[col].astype(str).str.replace(',', '.').astype(float)
+    return df
 
+# --- Lógica Principal ---
+arquivos = listar_arquivos_csv()
 
-# --- Carregar lista de arquivos ---
-todos_arquivos_info = listar_arquivos_csv()
+if not arquivos:
+    st.warning("Nenhum arquivo encontrado em: " + DADOS_DIR)
+    st.stop()
 
-if not todos_arquivos_info:
-    st.warning(f"Nenhum arquivo .csv de histórico encontrado na pasta '{DADOS_DIR}'.")
-    st.info("Verifique se os arquivos estão sendo salvos corretamente no diretório configurado.")
-else:
-    # --- Determinar o arquivo mais recente (por data + hora) ---
-    arquivos_validos = [a for a in todos_arquivos_info if a["data"] is not None]
-    if arquivos_validos:
-        arquivo_mais_recente = max(
-            arquivos_validos, key=lambda x: (x["data"], x["hora"])
-        )
+# Arquivo mais recente
+arquivo_atual = max(arquivos, key=lambda x: (x["data"], x["hora"]))
 
-        st.markdown("## Última Leitura Registrada")
+try:
+    df_dados = carregar_csv_caminho(arquivo_atual["caminho"])
+    ultima = df_dados.iloc[-1]
 
-        try:
-            df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"])
-            if df_ultimo.empty:
-                st.info("O arquivo mais recente está vazio.")
-            else:
-                df_ultimo.columns = [
-                    "Date",
-                    "Time",
-                    "Ambiente",
-                    "Entrada",
-                    "Saída",
-                    "ΔT",
-                    "Tensão",
-                    "Corrente",
-                    "kcal/h",
-                    "Vazão",
-                    "kW Aquecimento",
-                    "kW Consumo",
-                    "COP",
-                ]
+    # Cabeçalho de Info
+    st.info(f"**Modelo:** {arquivo_atual['modelo']} | **OP:** {arquivo_atual['operacao']} | **Data:** {arquivo_atual['data'].strftime('%d/%m/%Y')} | **Hora:** {arquivo_atual['hora']}")
 
-                ultima_linha = df_ultimo.iloc[-1]
+    col1, col2, col3 = st.columns(3)
 
-                col_info_geral, _, _ = st.columns([2, 1, 1])
-                with col_info_geral:
-                    st.markdown(
-                        f"**Modelo:** {arquivo_mais_recente['modelo'] or 'N/D'} | "
-                        f"**OP:** {arquivo_mais_recente['operacao'] or 'N/D'} | "
-                        f"**Data:** {arquivo_mais_recente['data'].strftime('%d/%m/%Y') if arquivo_mais_recente['data'] else 'N/D'} | "
-                        f"**Hora:** {arquivo_mais_recente['hora'] or 'N/D'}"
-                    )
+    with col1:
+        # T-Ambiente
+        st.markdown(f'<div class="ft-card"><i class="bi bi-thermometer-half ft-card-icon"></i><div class="ft-card-content"><p class="ft-card-title">T-Ambiente (°C)</p><p class="ft-card-value">{ultima["Ambiente"]}</p></div></div>', unsafe_allow_html=True)
+        # T-Entrada
+        st.markdown(f'<div class="ft-card"><i class="bi bi-arrow-down-circle ft-card-icon"></i><div class="ft-card-content"><p class="ft-card-title">T-Entrada (°C)</p><p class="ft-card-value">{ultima["Entrada"]}</p></div></div>', unsafe_allow_html=True)
+        # T-Saída (VERMELHO)
+        st.markdown(f'<div class="ft-card" style="border-left-color: #dc3545;"><i class="bi bi-arrow-up-circle ft-card-icon" style="color: #dc3545;"></i><div class="ft-card-content"><p class="ft-card-title">T-Saída (°C)</p><p class="ft-card-value">{ultima["Saída"]}</p></div></div>', unsafe_allow_html=True)
 
-                col1, col2, col3 = st.columns(3)
+    with col2:
+        # COP (Verde)
+        st.markdown(f'<div class="ft-card" style="border-left-color: #198754;"><i class="bi bi-lightning-charge ft-card-icon" style="color: #198754;"></i><div class="ft-card-content"><p class="ft-card-title">COP</p><p class="ft-card-value">{ultima["COP"]}</p></div></div>', unsafe_allow_html=True)
+        # Vazão
+        st.markdown(f'<div class="ft-card" style="border-left-color: #0dcaf0;"><i class="bi bi-water ft-card-icon" style="color: #0dcaf0;"></i><div class="ft-card-content"><p class="ft-card-title">Vazão (L/h)</p><p class="ft-card-value">{ultima["Vazão"]}</p></div></div>', unsafe_allow_html=True)
+        # Delta T
+        st.markdown(f'<div class="ft-card"><i class="bi bi-moisture ft-card-icon"></i><div class="ft-card-content"><p class="ft-card-title">ΔT (°C)</p><p class="ft-card-value">{ultima["ΔT"]}</p></div></div>', unsafe_allow_html=True)
 
-                # --- Coluna 1 ---
-                with col1:
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-thermometer-half ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">T-Ambiente (°C)</p>
-                                <p class="ft-card-value">{ultima_linha['Ambiente']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+    with col3:
+        # Tensão (Amarelo)
+        st.markdown(f'<div class="ft-card" style="border-left-color: #ffc107;"><i class="bi bi-cpu ft-card-icon" style="color: #ffc107;"></i><div class="ft-card-content"><p class="ft-card-title">Tensão (V)</p><p class="ft-card-value">{ultima["Tensão"]}</p></div></div>', unsafe_allow_html=True)
+        # Corrente
+        st.markdown(f'<div class="ft-card" style="border-left-color: #ffc107;"><i class="bi bi-activity ft-card-icon" style="color: #ffc107;"></i><div class="ft-card-content"><p class="ft-card-title">Corrente (A)</p><p class="ft-card-value">{ultima["Corrente"]}</p></div></div>', unsafe_allow_html=True)
+        # Consumo
+        st.markdown(f'<div class="ft-card" style="border-left-color: #ffc107;"><i class="bi bi-speedometer2 ft-card-icon" style="color: #ffc107;"></i><div class="ft-card-content"><p class="ft-card-title">kW Consumo</p><p class="ft-card-value">{ultima["kW Consumo"]}</p></div></div>', unsafe_allow_html=True)
 
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-arrow-down-circle ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">T-Entrada (°C)</p>
-                                <p class="ft-card-value">{ultima_linha['Entrada']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+    # --- Gráfico ---
+    st.markdown("### Histórico de Temperaturas")
+    fig = px.line(df_dados, x="Time", y=["Entrada", "Saída", "Ambiente"],
+                 color_discrete_map={"Entrada": "#0d6efd", "Saída": "#dc3545", "Ambiente": "#6c757d"},
+                 template="plotly_white")
+    st.plotly_chart(fig, use_container_width=True)
 
-                    # DIF com ícone de diferencial de temperatura (seta para cima e para baixo)
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-arrow-down-up ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">DIF (ΔT) (°C)</p>
-                                <p class="ft-card-value">{ultima_linha['ΔT']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                # --- Coluna 2 ---
-                with col2:
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-lightning-charge ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">Tensão (V)</p>
-                                <p class="ft-card-value">{ultima_linha['Tensão']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-plug ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">Corrente (A)</p>
-                                <p class="ft-card-value">{ultima_linha['Corrente']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-fire ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">kcal/h</p>
-                                <p class="ft-card-value">{ultima_linha['kcal/h']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                # --- Coluna 3 ---
-                with col3:
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-water ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">Vazão</p>
-                                <p class="ft-card-value">{ultima_linha['Vazão']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-graph-up-arrow ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">kW Aquecimento</p>
-                                <p class="ft-card-value">{ultima_linha['kW Aquecimento']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-lightbulb ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">kW Consumo</p>
-                                <p class="ft-card-value">{ultima_linha['kW Consumo']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="ft-card">
-                            <i class="bi bi-speedometer ft-card-icon"></i>
-                            <div class="ft-card-content">
-                                <p class="ft-card-title">COP</p>
-                                <p class="ft-card-value">{ultima_linha['COP']}</p>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown("---")
-
-        except Exception as e:
-            st.error(f"Não foi possível gerar o painel da última leitura: {e}")
-            st.info("Verifique se o formato do CSV está conforme o padrão esperado.")
-
-    # ----------------------------------------------------------------------
-    # DAQUI PRA BAIXO: SEU CÓDIGO ORIGINAL DE HISTÓRICOS, TABELAS, PDFs, GRÁFICOS
-    # ----------------------------------------------------------------------
-    # (estou assumindo que o restante do arquivo está exatamente como você colou;
-    #  se faltar alguma parte abaixo, é só colar de volta do seu backup original)
-    # ... resto do código de abas, históricos, download de CSV/PDF e gráficos ...
+except Exception as e:
+    st.error(f"Erro ao carregar dados: {e}")
