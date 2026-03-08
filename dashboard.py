@@ -91,6 +91,88 @@ if not todos_arquivos_info:
     st.info("Verifique se os arquivos .csv foram sincronizados corretamente para o GitHub.")
     st.stop()
 
+# --- Determinar o arquivo mais recente (por data + hora) ---
+arquivo_mais_recente = max(
+    todos_arquivos_info,
+    key=lambda x: (
+        x["data"] if x["data"] else datetime.min.date(),
+        x["hora"] or "",
+    ),
+)
+
+# --- Função para carregar um CSV (ponto e vírgula ou vírgula) ---
+def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
+    try:
+        return pd.read_csv(caminho, sep=";", engine="python")
+    except Exception:
+        return pd.read_csv(caminho, sep=",", engine="python")
+
+
+# --- Criar dashboards com a última leitura do arquivo mais recente ---
+st.markdown("### Última Leitura Registrada")
+
+try:
+    df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"]).copy()
+
+    # Renomear colunas para padrão esperado
+    df_ultimo.columns = [
+        "Date",
+        "Time",
+        "Ambiente",
+        "Entrada",
+        "Saída",
+        "ΔT",
+        "Tensão",
+        "Corrente",
+        "kcal/h",
+        "Vazão",
+        "kW Aquecimento",
+        "kW Consumo",
+        "COP",
+    ]
+
+    # Última linha (leitura mais recente dentro do arquivo)
+    ultima_linha = df_ultimo.iloc[-1]
+
+    modelo_info = arquivo_mais_recente["modelo"] or "N/D"
+    op_info = arquivo_mais_recente["operacao"] or "N/D"
+    data_info = arquivo_mais_recente["data"].strftime("%d/%m/%Y") if arquivo_mais_recente["data"] else "N/D"
+    ano_info = arquivo_mais_recente["ano"] or "N/D"
+    hora_info = arquivo_mais_recente["hora"] or "N/D"
+
+    # Bloco com informações do teste
+    st.markdown(
+        f"**Modelo:** {modelo_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"**Operação (OP):** {op_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"**Data:** {data_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"**Ano:** {ano_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"**Hora:** {hora_info}"
+    )
+
+    # Métricas principais em cartões
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("T-Ambiente (°C)", f"{ultima_linha['Ambiente']}")
+        st.metric("T-Entrada (°C)", f"{ultima_linha['Entrada']}")
+        st.metric("T-Saída (°C)", f"{ultima_linha['Saída']}")
+        st.metric("DIF (ΔT) (°C)", f"{ultima_linha['ΔT']}")
+
+    with col2:
+        st.metric("Tensão (V)", f"{ultima_linha['Tensão']}")
+        st.metric("Corrente (A)", f"{ultima_linha['Corrente']}")
+        st.metric("kcal/h", f"{ultima_linha['kcal/h']}")
+        st.metric("Vazão", f"{ultima_linha['Vazão']}")
+
+    with col3:
+        st.metric("kW Aquecimento", f"{ultima_linha['kW Aquecimento']}")
+        st.metric("kW Consumo", f"{ultima_linha['kW Consumo']}")
+        st.metric("COP", f"{ultima_linha['COP']}")
+
+except Exception as e:
+    st.error(f"Não foi possível gerar o painel da última leitura: {e}")
+    st.info("Verifique se o formato do CSV está conforme o padrão esperado.")
+
+
 # --- TABS PRINCIPAIS ---
 tab_hist, tab_graf = st.tabs(["📄 Históricos e Planilhas", "📊 Crie Seu Gráfico"])
 
@@ -137,7 +219,6 @@ with tab_hist:
         meses_labels,
         key="hist_mes",
     )
-    # Converter label de volta para número de mês
     mes_selecionado = None
     if mes_selecionado_label != "Todos":
         mes_selecionado = int(mes_selecionado_label.split(" ")[0])
@@ -158,7 +239,7 @@ with tab_hist:
         key="hist_op",
     )
 
-    # Aplicar filtros em cadeia
+    # Aplicar filtros
     arquivos_filtrados = todos_arquivos_info
 
     if modelo_selecionado != "Todos":
@@ -181,7 +262,7 @@ with tab_hist:
         arquivos_filtrados,
         key=lambda x: (
             x["data"] if x["data"] else datetime.min.date(),
-            x["hora"],
+            x["hora"] or "",
         ),
         reverse=True,
     )
@@ -192,7 +273,7 @@ with tab_hist:
         st.info("Nenhum histórico encontrado com os filtros selecionados.")
         st.stop()
 
-    # --- Função para gerar PDF A4 paisagem, com azul no cabeçalho ---
+    # --- Função para gerar PDF A4 paisagem ---
     def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
         buffer = BytesIO()
         doc = SimpleDocTemplate(
@@ -208,7 +289,7 @@ with tab_hist:
         title_style = ParagraphStyle(
             name="TitleCenter",
             parent=styles["Title"],
-            alignment=1,  # centralizado
+            alignment=1,
             fontSize=18,
             spaceAfter=16,
         )
@@ -224,7 +305,7 @@ with tab_hist:
             parent=styles["Normal"],
             alignment=0,
             fontSize=10,
-            leading=14,  # Espaçamento entre linhas
+            leading=14,
             fontName="Helvetica-Bold",
         )
         normal_center = ParagraphStyle(
@@ -236,7 +317,6 @@ with tab_hist:
 
         story = []
 
-        # Título principal
         story.append(Paragraph("Planilha Teste de Máquinas Fromtherm", title_style))
         story.append(Spacer(1, 6))
 
@@ -246,7 +326,6 @@ with tab_hist:
         modelo_str = meta["modelo"] or "N/D"
         linha_str = meta["linha"] or "N/D"
 
-        # Bloco de informações
         story.append(Paragraph(f"<b>Data:</b> {data_str}", normal_left_bold))
         story.append(Paragraph(f"<b>Hora:</b> {hora_str}", normal_left_bold))
         story.append(Paragraph(f"<b>Operação:</b> {operacao_str}", normal_left_bold))
@@ -254,16 +333,13 @@ with tab_hist:
         story.append(Paragraph(f"<b>Linha:</b> {linha_str}", normal_left_bold))
         story.append(Spacer(1, 10))
 
-        # Título da seção de dados
         story.append(Paragraph("Dados da Operação:", subtitle_style))
         story.append(Spacer(1, 6))
 
-        # Preparar dados da tabela
         cols = list(df_dados.columns)
         data_rows = df_dados.values.tolist()
         table_data = [cols] + data_rows
 
-        # Largura de tabela
         total_width = 780
         col_widths = []
         for col_name in cols:
@@ -317,9 +393,6 @@ with tab_hist:
 
     # --- Listar cada arquivo filtrado ---
     for i, arquivo in enumerate(arquivos_filtrados):
-        data_str = arquivo["data"].strftime("%d/%m/%mY") if arquivo["data"] else "sem data"
-
-        # Formatações para nomes de arquivo (download)
         if arquivo["data"]:
             data_nome = arquivo["data"].strftime("%d-%m-%Y")
         else:
@@ -331,21 +404,15 @@ with tab_hist:
         else:
             hora_nome = "sem-hora"
 
-        titulo_expander = (
-            f"**{arquivo['modelo'] or 'Modelo não identificado'}** - "
-            f"Linha: {arquivo['linha'] or '-'} - "
-            f"Data: {data_str} - Hora: {arquivo['hora'] or '-'} - "
-            f"Operação: {arquivo['operacao'] or '-'}"
-        )
-
-        with st.expander(titulo_expander):
+        with st.expander(
+            f"{arquivo['modelo'] or 'N/D'} - "
+            f"Linha: {arquivo['linha'] or 'N/D'} - "
+            f"Data: {arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else 'N/D'} - "
+            f"Hora: {arquivo['hora'] or 'N/D'} - "
+            f"Operação: {arquivo['operacao'] or 'N/D'}"
+        ):
             try:
-                # lê CSV
-                try:
-                    df_dados = pd.read_csv(arquivo["caminho"], sep=";", engine="python")
-                except Exception:
-                    df_dados = pd.read_csv(arquivo["caminho"], sep=",", engine="python")
-
+                df_dados = carregar_csv_caminho(arquivo["caminho"]).copy()
                 df_dados.columns = [
                     "Date",
                     "Time",
@@ -362,30 +429,40 @@ with tab_hist:
                     "COP",
                 ]
 
-                st.subheader("Dados da Operação")
                 st.dataframe(df_dados, use_container_width=True)
 
-                # Exportar Excel
                 output_excel = BytesIO()
                 with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
+                    df_dados.to_excel(writer, sheet_name="Dados", index=False, startrow=9)
+
                     workbook = writer.book
-                    worksheet = workbook.add_worksheet("Dados")
-                    writer.sheets["Dados"] = worksheet
+                    worksheet = writer.sheets["Dados"]
 
                     azul_cabecalho = "#004A99"
+
                     title_format = workbook.add_format(
-                        {"bold": True, "font_size": 16, "align": "center"}
+                        {
+                            "bold": True,
+                            "font_size": 16,
+                            "align": "center",
+                            "valign": "vcenter",
+                            "bg_color": azul_cabecalho,
+                            "font_color": "white",
+                        }
                     )
                     header_info_label = workbook.add_format(
                         {
                             "bold": True,
-                            "bg_color": "#D9E3F0",
+                            "bg_color": "#E6F0FF",
+                            "font_color": "black",
                             "border": 1,
-                            "align": "left",
+                            "align": "right",
                         }
                     )
                     header_info_value = workbook.add_format(
                         {
+                            "bg_color": "#F7FBFF",
+                            "font_color": "black",
                             "border": 1,
                             "align": "left",
                         }
@@ -476,7 +553,6 @@ with tab_hist:
                     key=f"excel_download_{i}",
                 )
 
-                # Exportar PDF
                 pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
                 st.download_button(
                     label="Exportar para PDF",
@@ -505,37 +581,29 @@ with tab_graf:
         "Selecione o **Modelo**, **Ano**, **Mês**, **Operação (OP)** e os itens que deseja visualizar no gráfico."
     )
 
-    # Obter todos os modelos disponíveis
     modelos_disponiveis_graf = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
 
-    # Seleção de Modelo
     modelo_graf = st.selectbox(
         "Modelo:",
         modelos_disponiveis_graf if modelos_disponiveis_graf else ["Nenhum modelo disponível"],
         key="graf_modelo",
     )
 
-    # Filtrar arquivos baseados no modelo selecionado
     arquivos_por_modelo = [a for a in todos_arquivos_info if a["modelo"] == modelo_graf]
 
-    # Obter anos disponíveis para o modelo selecionado
     anos_disponiveis_graf = sorted(list(set(a["ano"] for a in arquivos_por_modelo if a["ano"])))
 
-    # Seleção de Ano
     ano_graf = st.selectbox(
         "Ano:",
         anos_disponiveis_graf if anos_disponiveis_graf else ["Nenhum ano disponível"],
         key="graf_ano",
     )
 
-    # Filtrar arquivos baseados no modelo e ano selecionados
     arquivos_por_modelo_ano = [a for a in arquivos_por_modelo if a["ano"] == ano_graf]
 
-    # Obter meses disponíveis para o modelo e ano selecionados
     meses_disponiveis_graf = sorted(list(set(a["mes"] for a in arquivos_por_modelo_ano if a["mes"])))
     meses_labels_graf = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis_graf] if meses_disponiveis_graf else ["Todos"]
 
-    # Seleção de Mês
     mes_graf_label = st.selectbox(
         "Mês:",
         meses_labels_graf,
@@ -545,31 +613,29 @@ with tab_graf:
     if mes_graf_label != "Todos":
         mes_graf = int(mes_graf_label.split(" ")[0])
 
-    # Filtrar arquivos baseados no modelo, ano e mês selecionados
     arquivos_por_modelo_ano_mes = [a for a in arquivos_por_modelo_ano if a["mes"] == mes_graf or mes_graf is None]
 
-    # Obter OPs disponíveis para o modelo, ano e mês selecionados
     ops_disponiveis_graf = sorted(list(set(a["operacao"] for a in arquivos_por_modelo_ano_mes if a["operacao"])))
 
-    # Determinar valor padrão para OP
     default_op_index = 0
     if len(ops_disponiveis_graf) == 1:
-        default_op_index = ops_disponiveis_graf.index(ops_disponiveis_graf[0])
+        default_op_index = 0
 
     op_graf = st.selectbox(
         "Operação (OP):",
         ops_disponiveis_graf if ops_disponiveis_graf else ["Nenhuma OP disponível"],
-        index=default_op_index if ops_disponiveis_graf else 0, # Seleciona a única OP se houver, ou a primeira
+        index=default_op_index if ops_disponiveis_graf else 0,
         key="graf_op",
     )
 
-    # Filtrar arquivo específico para esse modelo + ano + mês + OP
     arquivo_escolhido = None
     for a in todos_arquivos_info:
-        if (a["modelo"] == modelo_graf and 
-            a["ano"] == ano_graf and 
-            (a["mes"] == mes_graf or mes_graf is None) and
-            a["operacao"] == op_graf):
+        if (
+            a["modelo"] == modelo_graf
+            and a["ano"] == ano_graf
+            and (a["mes"] == mes_graf or mes_graf is None)
+            and a["operacao"] == op_graf
+        ):
             arquivo_escolhido = a
             break
 
@@ -578,16 +644,10 @@ with tab_graf:
     elif arquivo_escolhido is None:
         st.warning("Não foi encontrado um arquivo que combine este Modelo, Ano, Mês e Operação.")
     else:
-        st.markdown(
-            f"Arquivo selecionado: **{arquivo_escolhido['nome_arquivo']}**"
-        )
+        st.markdown(f"Arquivo selecionado: **{arquivo_escolhido['nome_arquivo']}**")
 
-        # Carregar dados do arquivo escolhido
         try:
-            try:
-                df_graf = pd.read_csv(arquivo_escolhido["caminho"], sep=";", engine="python")
-            except Exception:
-                df_graf = pd.read_csv(arquivo_escolhido["caminho"], sep=",", engine="python")
+            df_graf = carregar_csv_caminho(arquivo_escolhido["caminho"]).copy()
 
             df_graf.columns = [
                 "Date",
@@ -605,16 +665,14 @@ with tab_graf:
                 "COP",
             ]
 
-            # Criar coluna de tempo completo (Date + Time) para eixo X
             try:
                 df_graf["DateTime"] = pd.to_datetime(
                     df_graf["Date"].astype(str) + " " + df_graf["Time"].astype(str),
                     errors="coerce",
                 )
             except Exception:
-                df_graf["DateTime"] = df_graf["Time"]  # fallback
+                df_graf["DateTime"] = df_graf["Time"]
 
-            # Seleção de variáveis
             st.markdown("### Variáveis para o gráfico")
 
             variaveis_opcoes = [
@@ -640,7 +698,6 @@ with tab_graf:
             if not vars_selecionadas:
                 st.info("Selecione pelo menos uma variável para gerar o gráfico.")
             else:
-                # Derreter o DataFrame para formato longo (para Plotly)
                 df_plot = df_graf[["DateTime"] + vars_selecionadas].copy()
                 df_melted = df_plot.melt(
                     id_vars="DateTime",
@@ -649,7 +706,6 @@ with tab_graf:
                     value_name="Valor",
                 )
 
-                # Gráfico interativo com Plotly
                 fig = px.line(
                     df_melted,
                     x="DateTime",
@@ -659,8 +715,8 @@ with tab_graf:
                     markers=True,
                 )
 
-                # --- AQUI ESTÁ A MUDANÇA PARA O EIXO Y COMEÇAR EM 0 ---
-                fig.update_yaxes(rangemode="tozero") # Garante que o eixo Y comece em 0
+                # eixo Y sempre iniciando em 0
+                fig.update_yaxes(rangemode="tozero")
 
                 fig.update_layout(
                     xaxis_title="Tempo",
