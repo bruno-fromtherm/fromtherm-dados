@@ -83,6 +83,14 @@ def listar_arquivos_csv():
     return info_arquivos
 
 
+# --- Função para carregar um CSV (ponto e vírgula ou vírgula) ---
+def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
+    try:
+        return pd.read_csv(caminho, sep=";", engine="python")
+    except Exception:
+        return pd.read_csv(caminho, sep=",", engine="python")
+
+
 # --- Carregar lista de arquivos ---
 todos_arquivos_info = listar_arquivos_csv()
 
@@ -100,21 +108,12 @@ arquivo_mais_recente = max(
     ),
 )
 
-# --- Função para carregar um CSV (ponto e vírgula ou vírgula) ---
-def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
-    try:
-        return pd.read_csv(caminho, sep=";", engine="python")
-    except Exception:
-        return pd.read_csv(caminho, sep=",", engine="python")
-
-
-# --- Criar dashboards com a última leitura do arquivo mais recente ---
+# --- PAINEL: Última leitura registrada ---
 st.markdown("### Última Leitura Registrada")
 
 try:
     df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"]).copy()
 
-    # Renomear colunas para padrão esperado
     df_ultimo.columns = [
         "Date",
         "Time",
@@ -131,7 +130,6 @@ try:
         "COP",
     ]
 
-    # Última linha (leitura mais recente dentro do arquivo)
     ultima_linha = df_ultimo.iloc[-1]
 
     modelo_info = arquivo_mais_recente["modelo"] or "N/D"
@@ -140,7 +138,6 @@ try:
     ano_info = arquivo_mais_recente["ano"] or "N/D"
     hora_info = arquivo_mais_recente["hora"] or "N/D"
 
-    # Bloco com informações do teste
     st.markdown(
         f"**Modelo:** {modelo_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
         f"**Operação (OP):** {op_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
@@ -149,24 +146,24 @@ try:
         f"**Hora:** {hora_info}"
     )
 
-    # Métricas principais em cartões
     col1, col2, col3 = st.columns(3)
+
     with col1:
-        st.metric("T-Ambiente (°C)", f"{ultima_linha['Ambiente']}")
-        st.metric("T-Entrada (°C)", f"{ultima_linha['Entrada']}")
-        st.metric("T-Saída (°C)", f"{ultima_linha['Saída']}")
-        st.metric("DIF (ΔT) (°C)", f"{ultima_linha['ΔT']}")
+        st.metric("🌡️ T-Ambiente (°C)", f"{ultima_linha['Ambiente']}")
+        st.metric("🌊 T-Entrada (°C)", f"{ultima_linha['Entrada']}")
+        st.metric("💧 T-Saída (°C)", f"{ultima_linha['Saída']}")
+        st.metric("➗ DIF (ΔT) (°C)", f"{ultima_linha['ΔT']}")
 
     with col2:
-        st.metric("Tensão (V)", f"{ultima_linha['Tensão']}")
-        st.metric("Corrente (A)", f"{ultima_linha['Corrente']}")
-        st.metric("kcal/h", f"{ultima_linha['kcal/h']}")
-        st.metric("Vazão", f"{ultima_linha['Vazão']}")
+        st.metric("⚡ Tensão (V)", f"{ultima_linha['Tensão']}")
+        st.metric("🔌 Corrente (A)", f"{ultima_linha['Corrente']}")
+        st.metric("🔥 kcal/h", f"{ultima_linha['kcal/h']}")
+        st.metric("💨 Vazão", f"{ultima_linha['Vazão']}")
 
     with col3:
-        st.metric("kW Aquecimento", f"{ultima_linha['kW Aquecimento']}")
-        st.metric("kW Consumo", f"{ultima_linha['kW Consumo']}")
-        st.metric("COP", f"{ultima_linha['COP']}")
+        st.metric("♨️ kW Aquecimento", f"{ultima_linha['kW Aquecimento']}")
+        st.metric("💡 kW Consumo", f"{ultima_linha['kW Consumo']}")
+        st.metric("📈 COP", f"{ultima_linha['COP']}")
 
 except Exception as e:
     st.error(f"Não foi possível gerar o painel da última leitura: {e}")
@@ -183,7 +180,6 @@ tab_hist, tab_graf = st.tabs(["📄 Históricos e Planilhas", "📊 Crie Seu Gr�
 with tab_hist:
     st.sidebar.header("Filtros - Históricos")
 
-    # Conjuntos disponíveis
     modelos_disponiveis = sorted({a["modelo"] for a in todos_arquivos_info if a["modelo"]})
     anos_disponiveis = sorted({a["ano"] for a in todos_arquivos_info if a["ano"]})
     meses_disponiveis = sorted({a["mes"] for a in todos_arquivos_info if a["mes"]})
@@ -193,21 +189,18 @@ with tab_hist:
     )
     ops_disponiveis = sorted({a["operacao"] for a in todos_arquivos_info if a["operacao"]})
 
-    # Filtro por Modelo
     modelo_selecionado = st.sidebar.selectbox(
         "Modelo:",
         ["Todos"] + modelos_disponiveis,
         key="hist_modelo",
     )
 
-    # Filtro por Ano
     ano_selecionado = st.sidebar.selectbox(
         "Ano:",
         ["Todos"] + anos_disponiveis if anos_disponiveis else ["Todos"],
         key="hist_ano",
     )
 
-    # Filtro por Mês
     mes_label_map = {
         1: "01 - Jan", 2: "02 - Fev", 3: "03 - Mar", 4: "04 - Abr",
         5: "05 - Mai", 6: "06 - Jun", 7: "07 - Jul", 8: "08 - Ago",
@@ -223,7 +216,6 @@ with tab_hist:
     if mes_selecionado_label != "Todos":
         mes_selecionado = int(mes_selecionado_label.split(" ")[0])
 
-    # Filtro por Data (opcional)
     data_selecionada = st.sidebar.date_input(
         "Data específica (opcional):",
         value=None,
@@ -232,14 +224,12 @@ with tab_hist:
         key="hist_data",
     )
 
-    # Filtro por Operação (OP)
     operacao_selecionada = st.sidebar.selectbox(
         "Operação (OP):",
         ["Todas"] + ops_disponiveis,
         key="hist_op",
     )
 
-    # Aplicar filtros
     arquivos_filtrados = todos_arquivos_info
 
     if modelo_selecionado != "Todos":
@@ -257,7 +247,6 @@ with tab_hist:
     if operacao_selecionada != "Todas":
         arquivos_filtrados = [a for a in arquivos_filtrados if a["operacao"] == operacao_selecionada]
 
-    # Ordenar por data e hora (mais recente primeiro)
     arquivos_filtrados = sorted(
         arquivos_filtrados,
         key=lambda x: (
@@ -348,68 +337,39 @@ with tab_hist:
             elif "Ambiente" in col_name or "Corrente" in col_name:
                 col_widths.append(70)
             elif "Date" in col_name:
-                col_widths.append(60)
+                col_widths.append(70)
             elif "Time" in col_name:
-                col_widths.append(50)
-            else:
                 col_widths.append(60)
+            else:
+                col_widths.append(total_width / len(cols))
 
-        current_total_width = sum(col_widths)
-        if current_total_width != total_width:
-            scale_factor = total_width / current_total_width
-            col_widths = [w * scale_factor for w in col_widths]
+        table = Table(table_data, colWidths=col_widths)
 
-        azul_cabecalho = colors.HexColor("#004A99")
-
-        dados_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-        dados_table.setStyle(
+        table.setStyle(
             TableStyle(
                 [
-                    ("BACKGROUND", (0, 0), (-1, 0), azul_cabecalho),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                    ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004A99")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                     ("FONTSIZE", (0, 0), (-1, 0), 9),
                     ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-                     [colors.HexColor("#F7FBFF"), colors.HexColor("#E6F0FF")]),
-                    ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
-                    ("ALIGN", (0, 1), (-1, -1), "CENTER"),
-                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
                     ("FONTSIZE", (0, 1), (-1, -1), 8),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
                 ]
             )
         )
-        story.append(dados_table)
-        story.append(Spacer(1, 10))
 
-        rodape = f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Fromtherm © {datetime.now().year}"
-        story.append(Paragraph(rodape, normal_center))
-
+        story.append(table)
         doc.build(story)
         buffer.seek(0)
         return buffer
 
-    # --- Listar cada arquivo filtrado ---
-    for i, arquivo in enumerate(arquivos_filtrados):
-        if arquivo["data"]:
-            data_nome = arquivo["data"].strftime("%d-%m-%Y")
-        else:
-            data_nome = "sem-data"
-
-        hora_nome = (arquivo["hora"] or "").replace(":", "-")
-        if hora_nome:
-            hora_nome = hora_nome + "hs"
-        else:
-            hora_nome = "sem-hora"
-
+    for i, arquivo in enumerate(arquivos_filtrados, start=1):
         with st.expander(
-            f"{arquivo['modelo'] or 'N/D'} - "
-            f"Linha: {arquivo['linha'] or 'N/D'} - "
-            f"Data: {arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else 'N/D'} - "
-            f"Hora: {arquivo['hora'] or 'N/D'} - "
-            f"Operação: {arquivo['operacao'] or 'N/D'}"
+            f"{arquivo['modelo']} - Linha: {arquivo['linha']} - Data: "
+            f"{arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else 'N/D'} "
+            f"- Hora: {arquivo['hora'] or 'N/D'} - Operação: {arquivo['operacao'] or 'N/D'}"
         ):
             try:
                 df_dados = carregar_csv_caminho(arquivo["caminho"]).copy()
@@ -431,10 +391,12 @@ with tab_hist:
 
                 st.dataframe(df_dados, use_container_width=True)
 
+                data_nome = arquivo["data"].strftime("%d-%m-%Y") if arquivo["data"] else "semdata"
+                hora_nome = (arquivo["hora"] or "").replace(":", "") + "hs"
+
                 output_excel = BytesIO()
                 with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
                     df_dados.to_excel(writer, sheet_name="Dados", index=False, startrow=9)
-
                     workbook = writer.book
                     worksheet = writer.sheets["Dados"]
 
@@ -715,7 +677,6 @@ with tab_graf:
                     markers=True,
                 )
 
-                # eixo Y sempre iniciando em 0
                 fig.update_yaxes(rangemode="tozero")
 
                 fig.update_layout(
