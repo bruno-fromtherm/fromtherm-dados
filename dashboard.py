@@ -21,21 +21,26 @@ st.sidebar.title("FromTherm")
 st.title("Máquina de Teste Fromtherm")
 
 # --- Pasta onde ficam os arquivos de histórico ---
-# IMPORTANTÍSSIMO: o process_ihm_logs.py agora copia os CSVs para esta pasta
-DADOS_DIR = "dados"  # pasta 'dados' no mesmo nível do dashboard.py
+# ATENÇÃO: Esta linha foi alterada para apontar para a pasta correta dos dados brutos
+DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 
 
 # --- Função para listar arquivos CSV localmente ---
 @st.cache_data(ttl=10)  # TTL curto para ver arquivos novos rapidamente
 def listar_arquivos_csv():
     """
-    Lista todos os arquivos .csv na pasta 'dados'
+    Lista todos os arquivos .csv na pasta 'dados_brutos/...'
     e extrai informações básicas do nome:
     historico_L1_20260303_2140_OP1234_FT185.csv
     """
     if not os.path.exists(DADOS_DIR):
+        # Para depuração local, pode ser útil criar a pasta se não existir
+        # Mas no Streamlit Cloud, ela deve existir se os arquivos foram commitados
+        # os.makedirs(DADOS_DIR, exist_ok=True)
         return []
 
+    # O glob precisa ser recursivo se DADOS_DIR tiver subpastas que queremos varrer
+    # Mas como DADOS_DIR já aponta para a pasta final, um glob simples basta
     arquivos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
     info_arquivos = []
 
@@ -81,8 +86,8 @@ def listar_arquivos_csv():
 todos_arquivos_info = listar_arquivos_csv()
 
 if not todos_arquivos_info:
-    st.warning("Nenhum arquivo .csv de histórico encontrado na pasta 'dados'.")
-    st.info("Coloque os arquivos .csv de histórico dentro da pasta 'dados' do repositório.")
+    st.warning(f"Nenhum arquivo .csv de histórico encontrado na pasta '{DADOS_DIR}'.")
+    st.info("Verifique se os arquivos .csv foram sincronizados corretamente para o GitHub.")
     st.stop()
 
 # --- Filtros na barra lateral ---
