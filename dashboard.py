@@ -29,18 +29,13 @@ DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 @st.cache_data(ttl=10)  # TTL curto para ver arquivos novos rapidamente
 def listar_arquivos_csv():
     """
-    Lista todos os arquivos .csv na pasta 'dados_brutos/...'
+    Lista todos os arquivos .csv na pasta DADOS_DIR
     e extrai informações básicas do nome:
     historico_L1_20260303_2140_OP1234_FT185.csv
     """
     if not os.path.exists(DADOS_DIR):
-        # Para depuração local, pode ser útil criar a pasta se não existir
-        # Mas no Streamlit Cloud, ela deve existir se os arquivos foram commitados
-        # os.makedirs(DADOS_DIR, exist_ok=True)
         return []
 
-    # O glob precisa ser recursivo se DADOS_DIR tiver subpastas que queremos varrer
-    # Mas como DADOS_DIR já aponta para a pasta final, um glob simples basta
     arquivos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
     info_arquivos = []
 
@@ -48,6 +43,8 @@ def listar_arquivos_csv():
         nome = os.path.basename(caminho)
         linha = ""
         data = None
+        ano = None
+        mes = None
         hora = ""
         operacao = ""
         modelo = ""
@@ -60,9 +57,11 @@ def listar_arquivos_csv():
                 data_str = partes[2]          # 20260303
                 hora_str = partes[3]          # 2140
                 operacao = partes[4]          # OP1234
-                modelo = partes[5]            # FT185
+                modelo = partes[5]            # FT185 ou similar
 
                 data = datetime.strptime(data_str, "%Y%m%d").date()
+                ano = data.year
+                mes = data.month
                 hora = f"{hora_str[:2]}:{hora_str[2:]}"
         except Exception:
             pass
@@ -73,6 +72,8 @@ def listar_arquivos_csv():
                 "caminho": caminho,
                 "linha": linha,
                 "data": data,
+                "ano": ano,
+                "mes": mes,
                 "hora": hora,
                 "operacao": operacao,
                 "modelo": modelo,
@@ -93,30 +94,75 @@ if not todos_arquivos_info:
 # --- Filtros na barra lateral ---
 st.sidebar.header("Filtros")
 
+# Conjuntos disponíveis
 modelos_disponiveis = sorted({a["modelo"] for a in todos_arquivos_info if a["modelo"]})
-modelo_selecionado = st.sidebar.selectbox(
-    "Filtrar por Modelo:",
-    ["Todos"] + modelos_disponiveis
-)
-
+anos_disponiveis = sorted({a["ano"] for a in todos_arquivos_info if a["ano"]})
+meses_disponiveis = sorted({a["mes"] for a in todos_arquivos_info if a["mes"]})
 datas_disponiveis = sorted(
     {a["data"] for a in todos_arquivos_info if a["data"]},
     reverse=True,
 )
+ops_disponiveis = sorted({a["operacao"] for a in todos_arquivos_info if a["operacao"]})
 
+# Filtro por Modelo
+modelo_selecionado = st.sidebar.selectbox(
+    "Modelo:",
+    ["Todos"] + modelos_disponiveis,
+)
+
+# Filtro por Ano
+ano_selecionado = st.sidebar.selectbox(
+    "Ano:",
+    ["Todos"] + anos_disponiveis if anos_disponiveis else ["Todos"],
+)
+
+# Filtro por Mês
+mes_label_map = {
+    1: "01 - Jan", 2: "02 - Fev", 3: "03 - Mar", 4: "04 - Abr",
+    5: "05 - Mai", 6: "06 - Jun", 7: "07 - Jul", 8: "08 - Ago",
+    9: "09 - Set", 10: "10 - Out", 11: "11 - Nov", 12: "12 - Dez",
+}
+meses_labels = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis] if meses_disponiveis else ["Todos"]
+mes_selecionado_label = st.sidebar.selectbox(
+    "Mês:",
+    meses_labels,
+)
+# Converter label de volta para número de mês
+mes_selecionado = None
+if mes_selecionado_label != "Todos":
+    mes_selecionado = int(mes_selecionado_label.split(" ")[0])
+
+# Filtro por Data (opcional)
 data_selecionada = st.sidebar.date_input(
-    "Filtrar por Data:",
+    "Data específica (opcional):",
     value=None,
     min_value=min(datas_disponiveis) if datas_disponiveis else None,
     max_value=max(datas_disponiveis) if datas_disponiveis else None,
 )
 
-# Aplicar filtros
+# Filtro por Operação (OP)
+operacao_selecionada = st.sidebar.selectbox(
+    "Operação (OP):",
+    ["Todas"] + ops_disponiveis,
+)
+
+# Aplicar filtros em cadeia
 arquivos_filtrados = todos_arquivos_info
+
 if modelo_selecionado != "Todos":
     arquivos_filtrados = [a for a in arquivos_filtrados if a["modelo"] == modelo_selecionado]
+
+if ano_selecionado != "Todos":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a["ano"] == ano_selecionado]
+
+if mes_selecionado is not None:
+    arquivos_filtrados = [a for a in arquivos_filtrados if a["mes"] == mes_selecionado]
+
 if data_selecionada:
     arquivos_filtrados = [a for a in arquivos_filtrados if a["data"] == data_selecionada]
+
+if operacao_selecionada != "Todas":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a["operacao"] == operacao_selecionada]
 
 # Ordenar por data e hora (mais recente primeiro)
 arquivos_filtrados = sorted(
@@ -268,6 +314,19 @@ def criar_pdf_paisagem(df_dados: pd.DataFrame, meta: dict) -> BytesIO:
 # --- Listar cada arquivo filtrado ---
 for i, arquivo in enumerate(arquivos_filtrados):
     data_str = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else "sem data"
+
+    # Formatações para nomes de arquivo (download)
+    if arquivo["data"]:
+        data_nome = arquivo["data"].strftime("%d-%m-%Y")  # 08-03-2026
+    else:
+        data_nome = "sem-data"
+
+    hora_nome = (arquivo["hora"] or "").replace(":", "-")  # 09-39
+    if hora_nome:
+        hora_nome = hora_nome + "hs"  # 09-39hs
+    else:
+        hora_nome = "sem-hora"
+
     titulo_expander = (
         f"**{arquivo['modelo'] or 'Modelo não identificado'}** - "
         f"Linha: {arquivo['linha'] or '-'} - "
@@ -417,8 +476,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 file_name=(
                     f"Maquina_{arquivo['modelo'] or 'N_D'}_"
                     f"{arquivo['operacao'] or 'OP'}_"
-                    f"{arquivo['data'].strftime('%d%m%Y') if arquivo['data'] else 'semdata'}_"
-                    f"{(arquivo['hora'] or '').replace(':', '')}.xlsx"
+                    f"{data_nome}_{hora_nome}.xlsx"
                 ),
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key=f"excel_download_{i}",
@@ -432,8 +490,7 @@ for i, arquivo in enumerate(arquivos_filtrados):
                 file_name=(
                     f"Maquina_{arquivo['modelo'] or 'N_D'}_"
                     f"{arquivo['operacao'] or 'OP'}_"
-                    f"{arquivo['data'].strftime('%d%m%Y') if arquivo['data'] else 'semdata'}_"
-                    f"{(arquivo['hora'] or '').replace(':', '')}.pdf"
+                    f"{data_nome}_{hora_nome}.pdf"
                 ),
                 mime="application/pdf",
                 key=f"pdf_download_{i}",
