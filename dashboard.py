@@ -5,206 +5,160 @@ import glob
 from datetime import datetime
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from io import BytesIO
 import plotly.express as px
 
-# --- Configuração básica da página ---
+# 1. CONFIGURAÇÃO E CSS (Remoção do "0" e Estilo Fromtherm)
 st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
 
-# =========================
-#  CSS GLOBAL E ESTILIZAÇÃO
-# =========================
-st.markdown(
-    """
+st.markdown("""
     <style>
-    .stApp { background-color: #f4f6f9; }
-    .main > div {
-        background-color: #ffffff;
-        padding: 10px 25px 40px 25px;
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-top: 5px;
+    /* Remover elementos estranhos do topo */
+    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    div[data-testid="stAppViewContainer"] > div:first-child span { display: none !important; }
+
+    .stApp { background-color: #f8f9fa; }
+    .main-card {
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
     }
-    h1 { color: #003366 !important; font-weight: 800 !important; }
-    div[data-testid="stAppViewContainer"] > div:first-child span {
-        font-size: 0px !important; color: transparent !important;
-    }
-    /* Estilo dos Cards do Painel */
-    .ft-card {
+    .metric-card {
         background: #ffffff;
-        border-radius: 12px;
-        padding: 14px 16px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-        border-left: 4px solid #0d6efd;
+        border-left: 5px solid #003366;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        text-align: center;
     }
-    .ft-card-icon {
-        font-size: 26px;
-        margin-right: 10px;
-        color: #0d6efd;
-        animation: ft-pulse 1.5s ease-in-out infinite;
-    }
-    .ft-card-content { display: flex; flex-direction: column; }
-    .ft-card-title { font-size: 13px; font-weight: 600; color: #444444; margin: 0; }
-    .ft-card-value { font-size: 18px; font-weight: 700; color: #111111; margin: 0; }
-    @keyframes ft-pulse {
-        0%   { transform: scale(1); opacity: 0.9; }
-        50%  { transform: scale(1.10); opacity: 1; }
-        100% { transform: scale(1); opacity: 0.9; }
-    }
+    .metric-title { color: #666; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; }
+    .metric-value { color: #003366; font-size: 1.2rem; font-weight: 800; }
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    """,
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# --- Logo e cabeçalho ---
-LOGO_URL = "https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png"
-st.sidebar.image(LOGO_URL, use_column_width=True)
-st.sidebar.title("FromTherm")
-st.title("Máquina de Teste Fromtherm")
-
-# --- Configuração de Caminho ---
 DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 
-# =========================
-#  FUNÇÕES AUXILIARES
-# =========================
-
-def criar_pdf_paisagem(df, info):
-    """Gera um PDF em formato paisagem com os dados do teste."""
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-    elements = []
-    styles = getSampleStyleSheet()
-
-    # Cabeçalho do PDF
-    titulo = f"Relatório de Teste - Modelo: {info['modelo']} (OP: {info['operacao']})"
-    elements.append(Paragraph(titulo, styles['Title']))
-    elements.append(Spacer(1, 12))
-
-    # Tabela de Dados
-    data = [df.columns.tolist()] + df.values.tolist()
-    t = Table(data, hAlign='CENTER')
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#003366")),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(t)
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
+# 2. FUNÇÕES DE DADOS E ARQUIVOS
+def formatar_nome_arquivo(info, extensao):
+    data_f = info['data'].strftime("%d-%m-%Y") if info['data'] else "00-00-00"
+    hora_f = (info['hora'] or "00-00").replace(":", "-")
+    return f"Maquina_{info['modelo']}_OP{info['operacao']}_{data_f}_{hora_f}hs.{extensao}"
 
 @st.cache_data(ttl=10)
-def listar_arquivos_csv():
+def listar_arquivos():
     if not os.path.exists(DADOS_DIR): return []
     arquivos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
-    info_arquivos = []
-    for caminho in arquivos:
-        nome = os.path.basename(caminho)
-        try:
-            partes = nome.replace(".csv", "").split("_")
-            if len(partes) >= 6:
-                data = datetime.strptime(partes[2], "%Y%m%d").date()
-                info_arquivos.append({
-                    "nome_arquivo": nome, "caminho": caminho, "linha": partes[1],
-                    "data": data, "ano": data.year, "mes": data.month,
-                    "hora": f"{partes[3][:2]}:{partes[3][2:]}", "operacao": partes[4], "modelo": partes[5]
-                })
-        except: pass
-    return info_arquivos
+    lista = []
+    for f in arquivos:
+        n = os.path.basename(f)
+        p = n.replace(".csv", "").split("_")
+        if len(p) >= 6:
+            dt = datetime.strptime(p[2], "%Y%m%d").date()
+            lista.append({
+                "nome": n, "caminho": f, "linha": p[1], "data": dt,
+                "ano": dt.year, "mes": dt.month, "hora": f"{p[3][:2]}:{p[3][2:]}",
+                "operacao": p[4], "modelo": p[5]
+            })
+    return lista
 
-def carregar_csv_caminho(caminho):
-    try:
-        df = pd.read_csv(caminho, sep=";", engine="python")
-    except:
-        df = pd.read_csv(caminho, sep=",", engine="python")
-
-    # Padronização de Colunas (Garante que o código não quebre se o CSV mudar)
-    colunas_esperadas = ["Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"]
-    if len(df.columns) == len(colunas_esperadas):
-        df.columns = colunas_esperadas
+def carregar_dados(caminho):
+    df = pd.read_csv(caminho, sep=";", engine="python") if ";" in open(caminho).read() else pd.read_csv(caminho)
+    df.columns = ["Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"]
     return df
 
-# --- Execução Principal ---
-todos_arquivos_info = listar_arquivos_csv()
-
-if not todos_arquivos_info:
-    st.warning(f"Nenhum arquivo encontrado em '{DADOS_DIR}'.")
+# 3. INTERFACE PRINCIPAL
+info_arquivos = listar_arquivos()
+if not info_arquivos:
+    st.error("Dados não encontrados.")
     st.stop()
 
-# Painel de última leitura
-arquivo_mais_recente = max(todos_arquivos_info, key=lambda x: (x["data"], x["hora"]))
-df_recente = carregar_csv_caminho(arquivo_mais_recente["caminho"])
-ultima_linha = df_recente.iloc[-1]
+# Sidebar com Logo e Filtros
+st.sidebar.image("https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png")
+st.sidebar.header("🔍 Filtros de Busca")
+f_modelo = st.sidebar.selectbox("Modelo", ["Todos"] + sorted(list({a['modelo'] for a in info_arquivos})))
+f_ano = st.sidebar.selectbox("Ano", ["Todos"] + sorted(list({str(a['ano']) for a in info_arquivos})))
+f_op = st.sidebar.text_input("Operação (OP)")
 
-st.markdown(f"### Última Leitura: **{arquivo_mais_recente['modelo']}** (OP: {arquivo_mais_recente['operacao']})")
-cols = st.columns(4)
+# Filtragem Dinâmica
+filtrados = [a for a in info_arquivos if 
+             (f_modelo == "Todos" or a['modelo'] == f_modelo) and 
+             (f_ano == "Todos" or str(a['ano']) == f_ano) and 
+             (f_op.upper() in a['operacao'].upper())]
+
+# 4. DASHBOARD DE ÚLTIMA LEITURA (Topo)
+recente = max(info_arquivos, key=lambda x: (x['data'], x['hora']))
+df_u = carregar_dados(recente['caminho']).iloc[-1]
+
+st.markdown(f"### 🚀 Painel de Performance - {recente['modelo']} (OP: {recente['operacao']})")
+st.caption(f"Última atualização: {recente['data'].strftime('%d/%m/%Y')} às {recente['hora']}")
+
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 metrics = [
-    ("T-Ambiente", ultima_linha['Ambiente'], "bi-thermometer-half"),
-    ("T-Entrada", ultima_linha['Entrada'], "bi-arrow-down-circle"),
-    ("T-Saída", ultima_linha['Saída'], "bi-arrow-up-circle"),
-    ("COP", ultima_linha['COP'], "bi-speedometer2")
+    ("Ambiente", df_u['Ambiente'], "°C"), ("Entrada", df_u['Entrada'], "°C"), ("Saída", df_u['Saída'], "°C"),
+    ("DIF (ΔT)", df_u['ΔT'], "°C"), ("Tensão", df_u['Tensão'], "V"), ("Corrente", df_u['Corrente'], "A")
 ]
+for i, (l, v, u) in enumerate(metrics):
+    with [c1, c2, c3, c4, c5, c6][i]:
+        st.markdown(f"<div class='metric-card'><div class='metric-title'>{l}</div><div class='metric-value'>{v}{u}</div></div>", unsafe_allow_html=True)
 
-for i, (label, val, icon) in enumerate(metrics):
-    cols[i % 4].markdown(f"""
-        <div class="ft-card">
-            <i class="bi {icon} ft-card-icon"></i>
-            <div class="ft-card-content">
-                <p class="ft-card-title">{label}</p>
-                <p class="ft-card-value">{val}</p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+c7, c8, c9, c10, c11 = st.columns(5)
+metrics2 = [
+    ("kcal/h", df_u['kcal/h'], ""), ("Vazão", df_u['Vazão'], "L/h"), ("kW Aquec.", df_u['kW Aquecimento'], "kW"),
+    ("kW Consu.", df_u['kW Consumo'], "kW"), ("COP", df_u['COP'], "")
+]
+for i, (l, v, u) in enumerate(metrics2):
+    with [c7, c8, c9, c10, c11][i]:
+        st.markdown(f"<div class='metric-card'><div class='metric-title'>{l}</div><div class='metric-value'>{v}{u}</div></div>", unsafe_allow_html=True)
 
-# --- TABS ---
-tab_hist, tab_graf = st.tabs(["📄 Históricos", "📊 Gráficos"])
+st.divider()
 
-with tab_hist:
-    # Filtros Simplificados na Sidebar
-    st.sidebar.header("Filtros")
-    f_modelo = st.sidebar.selectbox("Modelo:", ["Todos"] + sorted(list({a['modelo'] for a in todos_arquivos_info})))
+# 5. ABAS
+tab1, tab2 = st.tabs(["📄 Históricos Disponíveis", "📊 Crie Seu Gráfico"])
 
-    arquivos_filtrados = [a for a in todos_arquivos_info if f_modelo == "Todos" or a['modelo'] == f_modelo]
-    arquivos_filtrados.sort(key=lambda x: (x['data'], x['hora']), reverse=True)
+with tab1:
+    for arq in filtrados[:10]: # Limitar visíveis por performance
+        with st.expander(f"➔ {arq['modelo']} | OP: {arq['operacao']} | Data: {arq['data'].strftime('%d/%m/%Y')} - {arq['hora']}"):
+            df_hist = carregar_dados(arq['caminho'])
+            st.dataframe(df_hist, use_container_width=True)
 
-    for i, arq in enumerate(arquivos_filtrados):
-        with st.expander(f"📂 {arq['data']} - {arq['hora']} | {arq['modelo']} | OP: {arq['operacao']}"):
-            df_item = carregar_csv_caminho(arq['caminho'])
-            st.dataframe(df_item, use_container_width=True)
+            # Botões de Download com nome dinâmico
+            col_d1, col_d2 = st.columns(2)
+            nome_ex = formatar_nome_arquivo(arq, "xlsx")
+            nome_pdf = formatar_nome_arquivo(arq, "pdf")
 
-            c1, c2 = st.columns(2)
-            # Exportar Excel
-            output_excel = BytesIO()
-            with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
-                df_item.to_excel(writer, index=False)
-            c1.download_button("📥 Excel", output_excel.getvalue(), f"{arq['nome_arquivo']}.xlsx", key=f"ex_{i}")
+            output = BytesIO()
+            df_hist.to_excel(output, index=False)
+            col_d1.download_button("📥 Baixar Excel", output.getvalue(), nome_ex)
+            col_d2.button("📥 Gerar PDF (Visualizar)", key=arq['nome'])
 
-            # Exportar PDF
-            pdf_buf = criar_pdf_paisagem(df_item, arq)
-            c2.download_button("📥 PDF", pdf_buf, f"{arq['nome_arquivo']}.pdf", key=f"pdf_{i}")
+with tab2:
+    st.subheader("Gráfico Customizado")
+    col_g1, col_g2 = st.columns(2)
+    sel_mod = col_g1.selectbox("Selecione o Modelo", sorted(list({a['modelo'] for a in info_arquivos})), key="mod_g")
+    op_list = [a['operacao'] for a in info_arquivos if a['modelo'] == sel_mod]
+    sel_op = col_g2.selectbox("Selecione a Operação", op_list, key="op_g")
 
-with tab_graf:
-    st.subheader("Análise Gráfica")
-    arq_graf_nome = st.selectbox("Selecione o teste pelo arquivo:", [a['nome_arquivo'] for a in arquivos_filtrados])
-    arq_graf_info = next(a for a in todos_arquivos_info if a['nome_arquivo'] == arq_graf_nome)
+    escolhido = next(a for a in info_arquivos if a['modelo'] == sel_mod and a['operacao'] == sel_op)
+    df_g = carregar_dados(escolhido['caminho'])
 
-    df_plot_raw = carregar_csv_caminho(arq_graf_info['caminho'])
-    df_plot_raw["DateTime"] = df_plot_raw["Time"] # Simplificado para o eixo X
+    # Escalas Fixas (conforme solicitado)
+    escalas = {
+        "Ambiente": 50, "Entrada": 100, "Saída": 100, "ΔT": 10, "Tensão": 400,
+        "Corrente": 100, "kcal/h": 60000, "Vazão": 20000, "kW Aquecimento": 100,
+        "kW Consumo": 50, "COP": 20
+    }
 
-    vars_plot = st.multiselect("Variáveis:", ["Ambiente", "Entrada", "Saída", "ΔT", "COP", "kW Consumo"], default=["Entrada", "Saída"])
+    vars_g = st.multiselect("Escolha as variáveis para o gráfico:", list(escalas.keys()), default=["Entrada", "Saída"])
 
-    if vars_plot:
-        fig = px.line(df_plot_raw, x="DateTime", y=vars_plot, title=f"Desempenho - {arq_graf_info['modelo']}")
+    if vars_g:
+        fig = px.line(df_g, x="Time", y=vars_g, title=f"Teste {sel_mod} - OP {sel_op}")
+        fig.update_layout(hovermode="x unified", legend_orientation="h", yaxis_range=[0, max([escalas[v] for v in vars_g])])
         st.plotly_chart(fig, use_container_width=True)
+        st.info("Para compartilhar: Use o ícone de câmera no topo do gráfico para baixar e enviar no WhatsApp.")
