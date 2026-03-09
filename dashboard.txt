@@ -1,0 +1,145 @@
+import streamlit as st
+import pandas as pd
+import os
+import glob
+from datetime import datetime
+import re
+import plotly.express as px
+from io import BytesIO
+
+# -------------------------------------------------
+# 1. CONFIGURAÇÃO DA PÁGINA E LOGO
+# -------------------------------------------------
+st.set_page_config(layout="wide", page_title="Fromtherm - Teste de Máquinas", page_icon="🔥")
+
+# Simulação de Logo (Substitua pelo caminho da sua imagem se tiver)
+def exibir_logo():
+    st.markdown(f"""
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px;">
+            <h1 style="color: #003366; margin: 0;">FROMTHERM</h1>
+            <div style="width: 4px; height: 40px; background-color: #003366;"></div>
+            <h3 style="color: #666; margin: 0;">Engenharia de Climatização</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+# CSS para Cards e Responsividade
+st.markdown("""
+    <style>
+    .main-header { color: #003366; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 20px; }
+    .ft-card {
+        background: white; border-radius: 10px; padding: 15px; text-align: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-top: 5px solid #003366;
+    }
+    .ft-label { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; }
+    .ft-value { font-size: 18px; font-weight: 800; color: #003366; }
+    [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# -------------------------------------------------
+# 2. FUNÇÕES DE DADOS (CACHE)
+# -------------------------------------------------
+DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
+
+@st.cache_data(ttl=5)
+def buscar_arquivos():
+    if not os.path.exists(DADOS_DIR): return []
+    caminhos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
+    infos = []
+    for c in caminhos:
+        n = os.path.basename(c)
+        pts = n.replace(".csv", "").split("_")
+        if len(pts) >= 6:
+            try:
+                data_obj = datetime.strptime(pts[2], "%Y%m%d").date()
+                infos.append({
+                    'caminho': c, 'nome': n, 'data': data_obj, 'ano': str(data_obj.year),
+                    'mes': data_obj.strftime("%m"), 'dia': data_obj.strftime("%d/%m/%Y"),
+                    'hora': f"{pts[3][:2]}:{pts[3][2:]}", 'op': pts[4], 'modelo': pts[5]
+                })
+            except: pass
+    return sorted(infos, key=lambda x: (x['data'], x['hora']), reverse=True)
+
+def carregar_dados(caminho):
+    df = pd.read_csv(caminho, sep='|', skiprows=[1], skipinitialspace=True, engine='python').iloc[:, 1:-1]
+    df.columns = df.columns.str.strip().str.lower()
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+    return df
+
+# -------------------------------------------------
+# 3. INTERFACE E FILTROS
+# -------------------------------------------------
+exibir_logo()
+arquivos = buscar_arquivos()
+
+with st.sidebar:
+    st.header("🔍 Filtros de Pesquisa")
+    f_ano = st.multiselect("Ano", sorted(list(set(x['ano'] for x in arquivos))))
+    f_mes = st.multiselect("Mês", sorted(list(set(x['mes'] for x in arquivos))))
+    f_modelo = st.text_input("Modelo da Máquina (Digite)").upper()
+    
+    # Filtragem dinâmica
+    filtrados = [x for x in arquivos if 
+                 (not f_ano or x['ano'] in f_ano) and 
+                 (not f_mes or x['mes'] in f_mes) and 
+                 (f_modelo in x['modelo'].upper())]
+
+    escolha = st.selectbox("Históricos Disponíveis", filtrados, format_func=lambda x: f"{x['modelo']} - OP: {x['op']} ({x['dia']})")
+
+if escolha:
+    df = carregar_dados(escolha['caminho'])
+    ultima_leitura = df.iloc[-1]
+    
+    # Nome formatado para exportação
+    nome_export = f"Maquina_{escolha['modelo']}_OP{escolha['op']}_{escolha['dia'].replace('/','-')}_{escolha['hora'].replace(':','h')}hs"
+
+    aba1, aba2 = st.tabs(["📊 Dashboard de Teste", "📈 Crie Seu Gráfico"])
+
+    with aba1:
+        st.markdown(f"### 📍 Última Leitura: {escolha['modelo']} | OP: {escolha['op']} às {escolha['hora']}")
+        
+        # Grid de Dashboards (Métricas)
+        cols = st.columns(4)
+        metrias = [
+            ("T-Ambiente", "ambiente", "°C"), ("T-Entrada", "entrada", "°C"),
+            ("T-Saída", "saida", "°C"), ("DIF", "dif", "°C"),
+            ("Tensão", "tensao", "V"), ("Corrente", "corrente", "A"),
+            ("kcal/h", "kacl/h", ""), ("Vazão", "vazao", "L/h"),
+            ("kW Aquec.", "kw aquecimento", "kW"), ("kW Consumo", "kw consumo", "kW"),
+            ("COP", "cop", "")
+        ]
+        
+        for i, (label, col_df, unit) in enumerate(metrias):
+            val = ultima_leitura.get(col_df, 0)
+            cols[i % 4].metric(label, f"{val:.2f} {unit}")
+
+        st.divider()
+        st.dataframe(df, use_container_width=True)
+        
+        # Botões de Download
+        c1, c2 = st.columns(2)
+        c1.download_button("📥 Baixar Excel", data=df.to_csv().encode('utf-8'), file_name=f"{nome_export}.csv")
+        c2.info("Dica: Para compartilhar no WhatsApp, baixe o arquivo e anexe à conversa.")
+
+    with aba2:
+        st.markdown("### 🎨 Construtor de Gráficos")
+        opcoes_grafico = {
+            "Ambiente": "ambiente", "Entrada": "entrada", "Saída": "saida", 
+            "DIF": "dif", "Tensão": "tensao", "Corrente": "corrente",
+            "kcal/h": "kacl/h", "Vazão": "vazao", "kW Aquecimento": "kw aquecimento",
+            "kW Consumo": "kw consumo", "COP": "cop"
+        }
+        
+        selecionados = st.multiselect("Selecione os dados para o gráfico:", list(opcoes_grafico.keys()), default=["Entrada", "Saída"])
+        
+        if selecionados:
+            cols_plot = [opcoes_grafico[s] for s in selecionados]
+            fig = px.line(df, y=cols_plot, title=f"Desempenho - {escolha['modelo']}", markers=True)
+            fig.update_layout(hovermode="x unified", legend_title="Legenda")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Selecione pelo menos uma variável para gerar o gráfico.")
+
+else:
+    st.info("Utilize os filtros laterais para selecionar uma máquina e carregar os dados.")
