@@ -55,57 +55,80 @@ st.markdown(
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
     .ft-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
-    .ft-card-icon {
-        font-size: 26px;
-        margin-right: 10px;
+    .ft-icon {
+        font-size: 28px;
+        margin-right: 12px;
         color: #0d6efd;
-        animation: ft-pulse 1.5s ease-in-out infinite;
     }
-    .ft-card-icon.red {
-        color: #dc3545;
-    }
-    .ft-card-content {
+    .ft-content {
         flex-grow: 1;
     }
-    .ft-card-title {
-        margin: 0;
-        font-size: 0.9em;
+    .ft-label {
+        font-size: 11px;
         color: #6c757d;
         font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 2px;
     }
-    .ft-card-value {
-        margin: 0;
-        font-size: 1.5em;
-        font-weight: 800;
+    .ft-value {
+        font-size: 18px;
         color: #343a40;
-    }
-    @keyframes ft-pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
+        font-weight: 700;
     }
 
-    /* Estilo para o cabeçalho principal */
-    .st-emotion-cache-10q706c { /* Seletor específico para o cabeçalho do Streamlit */
-        padding-top: 0rem;
+    /* Estilo para os botões de download */
+    .stDownloadButton > button {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #0d6efd;
+        color: #0d6efd;
+        background-color: #e9f0ff;
+        padding: 8px 12px;
+        font-weight: 600;
+        transition: all 0.2s ease-in-out;
+    }
+    .stDownloadButton > button:hover {
+        background-color: #0d6efd;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Estilo para abas */
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        font-size: 16px;
+        font-weight: 600;
     }
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------
-# 3. CONFIGURAÇÃO DE DADOS
+# Funções Auxiliares
 # -------------------------------------------------
-# Caminho relativo para o Streamlit Cloud
+
+# Função para exibir cards
+def mostra_valor(label, value, unit, icon):
+    st.markdown(f"""
+        <div class="ft-card">
+            <span class="ft-icon">{icon}</span>
+            <div class="ft-content">
+                <div class="ft-label">{label}</div>
+                <div class="ft-value">{value} {unit}</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+# 3. CONFIGURAÇÃO DE DADOS
 DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 
 @st.cache_data(ttl=5)
 def buscar_arquivos():
     if not os.path.exists(DADOS_DIR):
-        st.warning(f"Diretório de dados não encontrado: {DADOS_DIR}. Verifique a estrutura do repositório.")
+        st.error(f"Diretório de dados não encontrado: {DADOS_DIR}")
         return []
 
     caminhos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
@@ -113,290 +136,292 @@ def buscar_arquivos():
     for c in caminhos:
         n = os.path.basename(c)
         parts = n.replace(".csv", "").split("_")
-        if len(parts) >= 6:
+
+        # O nome do arquivo deve ter pelo menos 6 partes: L1_YYYYMMDD_HHMM_OPERACAO_MODELO
+        if len(parts) >= 5: # Ajustado para 5 partes, pois o exemplo 'historico_L1_20260308_0939_OP987_FTA987BR.csv' tem 5 partes após o split
             try:
-                dt = datetime.strptime(parts[2], "%Y%m%d").date()
-                lista.append({
-                    "nome": n, "caminho": c, "data": dt,
-                    "ano": str(dt.year), "mes": dt.strftime("%m"),
-                    "data_f": dt.strftime("%d/%m/%Y"),
-                    "hora": f"{parts[3][:2]}:{parts[3][2:]}",
-                    "operacao": parts[4], "modelo": parts[5]
-                })
-            except ValueError:
-                st.warning(f"Erro ao processar nome do arquivo CSV: {n}. Formato de data ou hora inválido.")
+                # O formato do nome do arquivo é L1_YYYYMMDD_HHMM_OPERACAO_MODELO
+                # parts[0] = "historico" ou "L1"
+                # parts[1] = "L1" ou "20260308"
+                # parts[2] = "20260308" ou "0939"
+                # parts[3] = "0939" ou "OP987"
+                # parts[4] = "OP987" ou "FTA987BR"
+
+                # Vamos tentar uma lógica mais robusta para extrair a data e hora
+                # Assumindo que a data está sempre na 3ª ou 2ª posição e a hora na 4ª ou 3ª
+
+                dt_str = ""
+                time_str = ""
+                operacao = ""
+                modelo = ""
+
+                # Tenta encontrar a data (8 dígitos numéricos)
+                for i in range(len(parts)):
+                    if re.fullmatch(r'\d{8}', parts[i]):
+                        dt_str = parts[i]
+                        # Tenta encontrar a hora (4 dígitos numéricos) logo depois da data
+                        if i + 1 < len(parts) and re.fullmatch(r'\d{4}', parts[i+1]):
+                            time_str = parts[i+1]
+                            # As próximas duas partes seriam operação e modelo
+                            if i + 2 < len(parts): operacao = parts[i+2]
+                            if i + 3 < len(parts): modelo = parts[i+3]
+                        break # Encontrou a data, tenta processar o resto
+
+                if not dt_str: # Se não encontrou a data, tenta outro padrão
+                    # Ex: historico_L1_20260307_TESTE_NOVO.csv (data na 3a posição)
+                    if len(parts) >= 3 and re.fullmatch(r'\d{8}', parts[2]):
+                        dt_str = parts[2]
+                        if len(parts) >= 4: time_str = parts[3] # Hora pode ser a 4a parte
+                        if len(parts) >= 5: operacao = parts[4] # Operação pode ser a 5a parte
+                        if len(parts) >= 6: modelo = parts[5] # Modelo pode ser a 6a parte
+
+                if not dt_str: # Última tentativa, se o nome for muito simples
+                    if len(parts) >= 2 and re.fullmatch(r'\d{8}', parts[1]):
+                        dt_str = parts[1]
+                        if len(parts) >= 3: time_str = parts[2]
+                        if len(parts) >= 4: operacao = parts[3]
+                        if len(parts) >= 5: modelo = parts[4]
+
+                if dt_str:
+                    dt_obj = datetime.strptime(dt_str, "%Y%m%d").date()
+                    lista.append({
+                        "nome": n, "caminho": c, "data": dt_obj,
+                        "ano": str(dt_obj.year), "mes": dt_obj.strftime("%m"),
+                        "data_f": dt_obj.strftime("%d/%m/%Y"),
+                        "hora": f"{time_str[:2]}:{time_str[2:]}" if time_str and len(time_str) == 4 else "N/D",
+                        "operacao": operacao if operacao else "N/D",
+                        "modelo": modelo if modelo else "N/D"
+                    })
+                else:
+                    st.warning(f"Nome de arquivo CSV inválido ou formato inesperado: {n}. Ignorando.")
+
+            except Exception as e:
+                st.warning(f"Erro ao processar nome de arquivo {n}: {e}. Ignorando.")
                 continue
-        else:
-            st.warning(f"Nome de arquivo CSV inválido: {n}. Esperado pelo menos 6 partes separadas por '_'.")
     return sorted(lista, key=lambda x: (x['data'], x['hora']), reverse=True)
+
 
 def carregar_csv(caminho):
     try:
-        # Tenta ler com separador ';'
-        df = pd.read_csv(caminho, sep=";", engine="python")
-        # Se o número de colunas for muito baixo, tenta com ','
-        if len(df.columns) < 5:
-            df = pd.read_csv(caminho, sep=",", engine="python")
+        # Tenta ler com separador '|' e ignora espaços em branco
+        df = pd.read_csv(caminho, sep='|', skipinitialspace=True)
 
-        # Define os nomes das colunas esperadas
-        colunas_esperadas = ["Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"]
+        # Remove colunas vazias que podem surgir do separador '|' no início/fim da linha
+        df = df.dropna(axis=1, how='all')
 
-        # Verifica se o número de colunas corresponde
-        if len(df.columns) != len(colunas_esperadas):
-            st.warning(f"Número de colunas no CSV '{os.path.basename(caminho)}' ({len(df.columns)}) não corresponde ao esperado ({len(colunas_esperadas)}).")
-            # Tenta renomear as colunas existentes até onde for possível
-            df.columns = colunas_esperadas[:len(df.columns)]
-            # Adiciona colunas faltantes com NaN
-            for col in colunas_esperadas[len(df.columns):]:
-                df[col] = pd.NA
-        else:
-            df.columns = colunas_esperadas
+        # Remove espaços em branco dos nomes das colunas
+        df.columns = df.columns.str.strip()
 
-        # Converte colunas numéricas, tratando erros
-        for col in ["Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"]:
+        # Verifica se a primeira coluna é um índice ou está vazia e remove se for o caso
+        if df.columns[0] == '':
+            df = df.iloc[:, 1:]
+            df.columns = df.columns.str.strip() # Re-strip após remover a coluna
+
+        # Renomeia as colunas para o padrão esperado, se necessário
+        # Mapeamento de nomes de colunas do CSV para os nomes internos do código
+        col_mapping = {
+            "Date": "Date", "Time": "Time", "ambiente": "Ambiente",
+            "entrada": "Entrada", "saida": "Saída", "dif": "ΔT",
+            "tensao": "Tensão", "corrente": "Corrente", "kacl/h": "kcal/h",
+            "vazao": "Vazão", "kw aquecimento": "kW Aquecimento",
+            "kw consumo": "kW Consumo", "cop": "COP"
+        }
+        # Aplica o mapeamento, mantendo as colunas que não estão no mapeamento
+        df = df.rename(columns=col_mapping)
+
+        # Converte colunas numéricas para o tipo correto, tratando erros
+        numeric_cols = ["Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"]
+        for col in numeric_cols:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce') # 'coerce' transforma erros em NaN
+                # Converte para numérico, tratando vírgulas como decimais e forçando erros para NaN
+                df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                # Preenche NaN com 0 para evitar problemas de cálculo ou exibição, ou pode ser 'N/D' se preferir
+                df[col] = df[col].fillna(0) # Ou df[col].fillna('N/D') se quiser manter como string para N/D
 
         return df
     except Exception as e:
         st.error(f"Erro ao carregar ou processar o CSV '{os.path.basename(caminho)}': {e}")
         return pd.DataFrame()
 
-def extrair_ultima_linha(df):
-    if not df.empty:
-        return df.iloc[-1].to_dict()
-    return {}
 
-# -------------------------------------------------
-# 4. BARRA LATERAL (SIDEBAR) - SEM LOGO LOCAL
-# -------------------------------------------------
+# 4. BARRA LATERAL (SIDEBAR) - SEQUÊNCIA SOLICITADA
 arquivos_lista = buscar_arquivos()
 
 with st.sidebar:
-    st.markdown("---") # Linha divisória no lugar da logo
+    # Logo via URL (Evita erro de arquivo inexistente)
+    # Bruno, você pediu para não incluir a logo. Esta linha está comentada para remover a logo.
+    # Se quiser reativar, descomente a linha abaixo e remova o '#'
+    # st.image("https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png", use_container_width=True)
+    st.markdown("---")
     st.subheader("FILTROS DE BUSCA")
 
-    sel_modelo = st.selectbox("📦 Modelo", ["Todos"] + sorted(list({a['modelo'] for a in arquivos_lista})))
-    sel_op = st.text_input("🔢 Operação (OP)", help="Digite o número da OP").strip() # .strip() para remover espaços
-    sel_ano = st.selectbox("📅 Ano", ["Todos"] + sorted(list({a['ano'] for a in arquivos_lista}), reverse=True))
-    sel_mes = st.selectbox("📆 Mês", ["Todos"] + sorted(list({a['mes'] for a in arquivos_lista})))
+    # Extrai valores únicos para os filtros
+    modelos_unicos = sorted(list({a['modelo'] for a in arquivos_lista if a['modelo'] != 'N/D'}))
+    operacoes_unicas = sorted(list({a['operacao'] for a in arquivos_lista if a['operacao'] != 'N/D'}))
+    anos_unicos = sorted(list({a['ano'] for a in arquivos_lista}), reverse=True)
+    meses_unicos = sorted(list({a['mes'] for a in arquivos_lista}), reverse=True)
+    datas_unicas = sorted(list({a['data_f'] for a in arquivos_lista}), reverse=True)
 
-# Filtragem Dinâmica
-filtrados = [a for a in arquivos_lista if
-             (sel_modelo == "Todos" or a['modelo'] == sel_modelo) and
-             (not sel_op or a['operacao'].lower() == sel_op.lower()) and # Filtra por OP
-             (sel_ano == "Todos" or a['ano'] == sel_ano) and
-             (sel_mes == "Todos" or a['mes'] == sel_mes)
-            ]
+    sel_modelo = st.selectbox("📦 Modelo", ["Todos"] + modelos_unicos)
+    sel_op = st.selectbox("🔢 Operação", ["Todos"] + operacoes_unicas)
+    sel_ano = st.selectbox("📅 Ano", ["Todos"] + anos_unicos)
+    sel_mes = st.selectbox("🗓️ Mês", ["Todos"] + meses_unicos)
+    sel_data = st.selectbox("📆 Data Específica", ["Todos"] + datas_unicas)
 
-# -------------------------------------------------
-# 5. FUNÇÕES AUXILIARES PARA EXIBIÇÃO
-# -------------------------------------------------
-def mostra_valor(titulo, valor, unidade="", icone="bi bi-info-circle"):
-    # Garante que o valor seja exibido como "N/D" se for NaN ou None
-    if pd.isna(valor) or valor is None:
-        valor_str = "N/D"
-    elif isinstance(valor, (int, float)):
-        valor_str = f"{valor:.2f}" # Formata para 2 casas decimais se for número
-    else:
-        valor_str = str(valor) # Converte para string se for outro tipo
+    st.markdown("---")
+    st.markdown("Desenvolvido por **Inner AI**")
 
-    st.markdown(f"""
-        <div class="ft-card">
-            <i class="{icone} ft-card-icon"></i>
-            <div class="ft-card-content">
-                <p class="ft-card-title">{titulo}</p>
-                <p class="ft-card-value">{valor_str} {unidade}</p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+# 5. FILTRAGEM DOS ARQUIVOS
+arquivos_filtrados = arquivos_lista
+if sel_modelo != "Todos":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a['modelo'] == sel_modelo]
+if sel_op != "Todos":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a['operacao'] == sel_op]
+if sel_ano != "Todos":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a['ano'] == sel_ano]
+if sel_mes != "Todos":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a['mes'] == sel_mes]
+if sel_data != "Todos":
+    arquivos_filtrados = [a for a in arquivos_filtrados if a['data_f'] == sel_data]
 
-# Função para criar PDF (sem 'inch' e com tratamento de valores)
-def criar_pdf(df, nome_arquivo_original):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
-    styles = getSampleStyleSheet()
+# 6. LAYOUT PRINCIPAL
+st.markdown('<div class="main-header">Monitoramento de Máquinas Fromtherm</div>', unsafe_allow_html=True)
 
-    # Estilo para o título do PDF
-    styles.add(ParagraphStyle(name='TitleStyle', fontSize=18, leading=22,
-                              alignment=1, spaceAfter=12, fontName='Helvetica-Bold'))
-    # Estilo para o cabeçalho da tabela
-    styles.add(ParagraphStyle(name='TableHeaderStyle', fontSize=10, leading=12,
-                              alignment=1, fontName='Helvetica-Bold', textColor=colors.white))
-    # Estilo para o conteúdo da tabela
-    styles.add(ParagraphStyle(name='TableContentStyle', fontSize=9, leading=10,
-                              alignment=1, fontName='Helvetica'))
-
-    elements = []
-
-    # Título
-    elements.append(Paragraph(f"Relatório de Dados - {nome_arquivo_original.replace('.csv', '')}", styles['TitleStyle']))
-    elements.append(Spacer(1, 0.2 * 72)) # 0.2 polegadas = 0.2 * 72 pontos
-
-    # Preparar dados para a tabela
-    data = [
-        [Paragraph(col, styles['TableHeaderStyle']) for col in df.columns]
-    ]
-    for _, row in df.iterrows():
-        data.append([Paragraph(str(row[col]) if pd.notna(row[col]) else "N/D", styles['TableContentStyle']) for col in df.columns])
-
-    table = Table(data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#003366')), # Cabeçalho azul escuro
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    elements.append(table)
-
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
-
-# -------------------------------------------------
-# 6. LAYOUT PRINCIPAL DO DASHBOARD
-# -------------------------------------------------
-st.markdown('<p class="main-header">Monitoramento de Máquinas Fromtherm</p>', unsafe_allow_html=True)
-
-# Abas
 tab1, tab2 = st.tabs(["Históricos e Planilhas", "Crie Seu Gráfico"])
 
 with tab1:
     st.subheader("Última Leitura Registrada")
 
-    if arquivos_lista:
-        ultimo_arquivo = arquivos_lista[0]['caminho']
-        df_ultimo = carregar_csv(ultimo_arquivo)
-        ultima_linha = extrair_ultima_linha(df_ultimo)
+    if arquivos_filtrados:
+        ultimo_arquivo = arquivos_filtrados[0]
+        df_ultimo = carregar_csv(ultimo_arquivo['caminho'])
 
-        col1, col2, col3, col4 = st.columns(4)
-        with col1: mostra_valor("T-Ambiente", ultima_linha.get('Ambiente'), "°C", "bi bi-thermometer")
-        with col2: mostra_valor("T-Entrada", ultima_linha.get('Entrada'), "°C", "bi bi-arrow-down-circle")
-        with col3: mostra_valor("T-Saída", ultima_linha.get('Saída'), "°C", "bi bi-arrow-up-circle")
-        with col4: mostra_valor("ΔT", ultima_linha.get('ΔT'), "°C", "bi bi-arrows-expand")
+        if not df_ultimo.empty:
+            ultima_linha = df_ultimo.iloc[-1]
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                mostra_valor("T-Ambiente", f"{ultima_linha.get('Ambiente', 'N/D'):.2f}" if isinstance(ultima_linha.get('Ambiente'), (int, float)) else "N/D", "°C", "🌡️")
+            with col2:
+                mostra_valor("T-Entrada", f"{ultima_linha.get('Entrada', 'N/D'):.2f}" if isinstance(ultima_linha.get('Entrada'), (int, float)) else "N/D", "°C", "➡️")
+            with col3:
+                mostra_valor("T-Saída", f"{ultima_linha.get('Saída', 'N/D'):.2f}" if isinstance(ultima_linha.get('Saída'), (int, float)) else "N/D", "°C", "⬅️")
+            with col4:
+                mostra_valor("ΔT", f"{ultima_linha.get('ΔT', 'N/D'):.2f}" if isinstance(ultima_linha.get('ΔT'), (int, float)) else "N/D", "°C", "🔥")
 
-        col5, col6, col7, col8 = st.columns(4)
-        with col5: mostra_valor("Tensão", ultima_linha.get('Tensão'), "V", "bi bi-lightning")
-        with col6: mostra_valor("Corrente", ultima_linha.get('Corrente'), "A", "bi bi-lightning-charge")
-        with col7: mostra_valor("Vazão", ultima_linha.get('Vazão'), "L/min", "bi bi-droplet")
-        with col8: mostra_valor("COP", ultima_linha.get('COP'), "", "bi bi-award")
-
+            col5, col6, col7, col8 = st.columns(4)
+            with col5:
+                mostra_valor("Tensão", f"{ultima_linha.get('Tensão', 'N/D'):.2f}" if isinstance(ultima_linha.get('Tensão'), (int, float)) else "N/D", "V", "⚡")
+            with col6:
+                mostra_valor("Corrente", f"{ultima_linha.get('Corrente', 'N/D'):.2f}" if isinstance(ultima_linha.get('Corrente'), (int, float)) else "N/D", "A", "🔌")
+            with col7:
+                mostra_valor("Vazão", f"{ultima_linha.get('Vazão', 'N/D'):.2f}" if isinstance(ultima_linha.get('Vazão'), (int, float)) else "N/D", "L/min", "💧")
+            with col8:
+                mostra_valor("COP", f"{ultima_linha.get('COP', 'N/D'):.2f}" if isinstance(ultima_linha.get('COP'), (int, float)) else "N/D", "", "📈")
+        else:
+            st.warning(f"Não foi possível carregar dados do último histórico: {ultimo_arquivo['nome']}. Verifique o formato do arquivo.")
     else:
-        st.info("Nenhum histórico encontrado para exibir a última leitura.")
+        st.info("Nenhum histórico disponível com os filtros aplicados.")
 
     st.markdown("---")
     st.subheader("Históricos Disponíveis")
 
-    if filtrados:
-        for arq in filtrados:
-            expander_label = f"**{arq['modelo']}** | OP: {arq['operacao']} | Data: {arq['data_f']} | Hora: {arq['hora']}"
-            with st.expander(expander_label):
-                df_exibir = carregar_csv(arq['caminho'])
+    if arquivos_filtrados:
+        for arquivo in arquivos_filtrados:
+            with st.expander(f"**{arquivo['data_f']} - {arquivo['hora']}** | Modelo: {arquivo['modelo']} | Operação: {arquivo['operacao']}"):
+                df_exibir = carregar_csv(arquivo['caminho'])
                 if not df_exibir.empty:
                     st.dataframe(df_exibir, use_container_width=True)
 
+                    # Botões de Download
                     col_dl1, col_dl2 = st.columns(2)
                     with col_dl1:
-                        pdf_buffer = criar_pdf(df_exibir, arq['nome'])
+                        # Download PDF
+                        pdf_buffer = BytesIO()
+                        criar_pdf(df_exibir, pdf_buffer, arquivo['nome'])
                         st.download_button(
                             label="Baixar PDF",
-                            data=pdf_buffer,
-                            file_name=f"{arq['nome'].replace('.csv', '')}.pdf",
+                            data=pdf_buffer.getvalue(),
+                            file_name=f"{arquivo['nome'].replace('.csv', '')}.pdf",
                             mime="application/pdf",
-                            use_container_width=True
+                            key=f"pdf_{arquivo['nome']}"
                         )
                     with col_dl2:
+                        # Download Excel
                         excel_buffer = BytesIO()
                         with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
                             df_exibir.to_excel(writer, index=False, sheet_name='Dados')
-                        excel_buffer.seek(0)
                         st.download_button(
                             label="Baixar Excel",
-                            data=excel_buffer,
-                            file_name=f"{arq['nome'].replace('.csv', '')}.xlsx",
+                            data=excel_buffer.getvalue(),
+                            file_name=f"{arquivo['nome'].replace('.csv', '')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
+                            key=f"excel_{arquivo['nome']}"
                         )
                 else:
-                    st.warning(f"Não foi possível carregar os dados para {arq['nome']}.")
+                    st.warning(f"Não foi possível carregar dados para {arquivo['nome']}.")
     else:
-        st.info("Nenhum histórico corresponde aos filtros aplicados.")
+        st.info("Nenhum histórico disponível com os filtros aplicados.")
 
 with tab2:
     st.subheader("Crie Seu Gráfico Personalizado")
-    if filtrados:
-        modelos_graf = sorted(list({a['modelo'] for a in filtrados}))
-        op_graf = sorted(list({a['operacao'] for a in filtrados}))
-        datas_graf = sorted(list({a['data_f'] for a in filtrados}), reverse=True)
 
+    if arquivos_filtrados:
+        # Filtros para o gráfico
         col_g1, col_g2, col_g3 = st.columns(3)
-        with col_g1: modelo_graf = st.selectbox("Modelo", modelos_graf, key="modelo_graf")
-        with col_g2: op_graf_sel = st.selectbox("Operação (OP)", op_graf, key="op_graf")
-        with col_g3: data_graf = st.selectbox("Data", datas_graf, key="data_graf")
+        with col_g1:
+            sel_modelo_g = st.selectbox("Modelo", ["Selecione"] + modelos_unicos, key="modelo_grafico")
+        with col_g2:
+            sel_op_g = st.selectbox("Operação (OP)", ["Selecione"] + operacoes_unicas, key="operacao_grafico")
+        with col_g3:
+            sel_data_g = st.selectbox("Data", ["Selecione"] + datas_unicas, key="data_grafico")
 
-        # Encontrar o caminho do arquivo selecionado para o gráfico
-        caminho_graf = next((a['caminho'] for a in filtrados if
-                             a['modelo'] == modelo_graf and
-                             a['operacao'] == op_graf_sel and
-                             a['data_f'] == data_graf), None)
+        if sel_modelo_g != "Selecione" and sel_op_g != "Selecione" and sel_data_g != "Selecione":
+            # Encontra o arquivo correspondente aos filtros
+            arquivo_para_grafico = next((a for a in arquivos_filtrados if a['modelo'] == sel_modelo_g and a['operacao'] == sel_op_g and a['data_f'] == sel_data_g), None)
 
-        if caminho_graf:
-            df_graf = carregar_csv(caminho_graf)
-            if not df_graf.empty:
-                # Identificar colunas numéricas para o gráfico
-                colunas_numericas = df_graf.select_dtypes(include=['number']).columns.tolist()
-                if "Date" in colunas_numericas: colunas_numericas.remove("Date")
-                if "Time" in colunas_numericas: colunas_numericas.remove("Time")
+            if arquivo_para_grafico:
+                df_grafico = carregar_csv(arquivo_para_grafico['caminho'])
+                if not df_grafico.empty:
+                    # Identifica colunas numéricas para o gráfico
+                    numeric_cols_for_plot = [col for col in df_grafico.columns if pd.api.types.is_numeric_dtype(df_grafico[col]) and col not in ["Date", "Time"]]
 
-                if colunas_numericas:
-                    variaveis_selecionadas = st.multiselect(
-                        "Selecione as variáveis para o gráfico",
-                        colunas_numericas,
-                        default=colunas_numericas[:min(3, len(colunas_numericas))] # Seleciona até 3 por padrão
-                    )
-
-                    if variaveis_selecionadas:
-                        df_plot = df_graf[['Date', 'Time'] + variaveis_selecionadas].copy()
-                        df_plot['DateTime'] = pd.to_datetime(df_plot['Date'] + ' ' + df_plot['Time'], errors='coerce')
-                        df_plot = df_plot.dropna(subset=['DateTime'])
-
-                        df_melted = df_plot.melt(
-                            id_vars=["DateTime"],
-                            value_vars=variaveis_selecionadas,
-                            var_name="Variável",
-                            value_name="Valor",
+                    if numeric_cols_for_plot:
+                        variaveis_selecionadas = st.multiselect(
+                            "Selecione as variáveis para o gráfico",
+                            options=numeric_cols_for_plot,
+                            default=numeric_cols_for_plot[:2] # Seleciona as duas primeiras por padrão
                         )
-                        fig = px.line(
-                            df_melted,
-                            x="DateTime",
-                            y="Valor",
-                            color="Variável",
-                            title=f"Modelo {modelo_graf} | OP {op_graf_sel} | {data_graf}",
-                            markers=True,
-                        )
-                        fig.update_yaxes(rangemode="tozero")
-                        fig.update_layout(
-                            xaxis_title="Tempo",
-                            yaxis_title="Valor",
-                            hovermode="x unified",
-                            legend_title="Variáveis",
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
 
-                        st.markdown(
-                            "- Use o botão de **fullscreen** no gráfico (canto superior direito do gráfico) para tela cheia.\n"
-                            "- Use o ícone de **câmera** para baixar como imagem (PNG).\n"
-                            "- A imagem pode ser enviada por WhatsApp, e-mail, etc., em PC ou celular."
-                        )
+                        if variaveis_selecionadas:
+                            # Concatena Date e Time para criar um índice de tempo
+                            df_grafico['DateTime'] = pd.to_datetime(df_grafico['Date'] + ' ' + df_grafico['Time'], errors='coerce')
+                            df_grafico = df_grafico.dropna(subset=['DateTime']) # Remove linhas com DateTime inválido
+                            df_grafico = df_grafico.sort_values('DateTime')
+
+                            fig = px.line(
+                                df_grafico,
+                                x="DateTime",
+                                y=variaveis_selecionadas,
+                                title=f"Gráfico de Variáveis para {arquivo_para_grafico['modelo']} - {arquivo_para_grafico['operacao']} em {arquivo_para_grafico['data_f']}",
+                                labels={"DateTime": "Data e Hora", "value": "Valor"},
+                                hovermode="x unified",
+                                legend_title="Variáveis",
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+
+                            st.markdown(
+                                "- Use o botão de **fullscreen** no gráfico (canto superior direito do gráfico) para tela cheia.\n"
+                                "- Use o ícone de **câmera** para baixar como imagem (PNG).\n"
+                                "- A imagem pode ser enviada por WhatsApp, e-mail, etc., em PC ou celular."
+                            )
+                        else:
+                            st.info("Selecione pelo menos uma variável para gerar o gráfico.")
+                    else:
+                        st.info("Nenhuma variável numérica encontrada para gerar gráficos neste histórico.")
                 else:
-                    st.info("Nenhuma variável numérica encontrada para gerar gráficos neste histórico.")
+                    st.info("Nenhum histórico disponível para gerar gráficos com os filtros aplicados ou dados inválidos.")
             else:
-                st.info("Nenhum histórico disponível para gerar gráficos com os filtros aplicados ou dados inválidos.")
+                st.info("Selecione um Modelo, Operação e Data para gerar o gráfico.")
         else:
-            st.info("Selecione um Modelo, Operação e Data para gerar o gráfico.")
-    else:
-        st.info("Nenhum histórico disponível para gerar gráficos com os filtros aplicados.")
+            st.info("Nenhum histórico disponível para gerar gráficos com os filtros aplicados.")
