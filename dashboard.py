@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import os
@@ -6,12 +5,10 @@ import glob
 from datetime import datetime
 import re
 
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheets, ParagraphStyle # CORRIGIDO: getSampleStyleSheets (plural)
-from reportlab.lib import colors
-
+# Importações para FPDF2
+from fpdf import FPDF
 from io import BytesIO
+
 import plotly.express as px
 
 # -------------------------------------------------
@@ -64,188 +61,257 @@ st.markdown("""
         .ft-icon { font-size: 30px; }
     }
     </style>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------
-# 3. FUNÇÕES AUXILIARES
-# -------------------------------------------------
-
-# Função para exibir cards
-def mostra_valor(label, value, unit, icon_class): # icon_class é agora apenas a classe do ícone
-    st.markdown(f"""
-        <div class="ft-card">
-            <span class="ft-icon"><i class="{icon_class}"></i></span>
-            <div class="ft-content">
-                <div class="ft-label">{label}</div>
-                <div class="ft-value">{value} {unit}</div>
-            </div>
-        </div>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     """, unsafe_allow_html=True)
 
-# 3.1. CONFIGURAÇÃO DE DADOS E LEITURA DE ARQUIVOS
-# Caminho para a pasta de dados (ajustado para o ambiente do Streamlit Cloud)
-# O Streamlit Cloud monta o repositório na raiz, então o caminho é relativo a ela.
-DATA_PATH = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
+# -------------------------------------------------
+# 3. FUNÇÕES DE PROCESSAMENTO DE DADOS
+# -------------------------------------------------
 
-@st.cache_data(ttl=3600) # Cache por 1 hora
+# Caminho base para os arquivos CSV
+BASE_PATH = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
+
+@st.cache_data
 def buscar_arquivos():
     """
-    Busca arquivos CSV na DATA_PATH e extrai metadados de seus nomes.
-    Retorna uma lista de dicionários com os metadados.
+    Busca arquivos CSV no diretório especificado e extrai metadados.
+    Retorna uma lista de dicionários com path, nome, data, hora, operacao e modelo.
     """
-    if not os.path.exists(DATA_PATH):
-        st.error(f"O caminho de dados configurado não existe: '{DATA_PATH}'")
+    if not os.path.exists(BASE_PATH):
+        st.error(f"O diretório base '{BASE_PATH}' não foi encontrado. Verifique a estrutura de pastas.")
         return []
 
-    arquivos_encontrados = glob.glob(os.path.join(DATA_PATH, "*.csv"))
-    todos_arquivos = []
+    arquivos_encontrados = glob.glob(os.path.join(BASE_PATH, "*.csv"))
+    lista_arquivos_meta = []
 
     # Regex ultra-robusto para capturar data, hora, operação e modelo
-    # Ele tenta ser o mais flexível possível para a operação e o modelo
-    # Ex: historico_L1_YYYYMMDD_HHMM_OPX_MODELO.csv
-    # Ou: historico_L1_YYYYMMDD_HHMM_OPEY_MODELO.csv
-    # Ou: historico_L1_YYYYMMDD_HHMM_MODELO.csv (sem OP/OPE)
-    # Ou: historico_L1_YYYYMMDD_HHMM_OPX.csv (sem MODELO)
-    # Ou: historico_L1_YYYYMMDD_HHMM.csv (sem OP/OPE e MODELO)
-    # O objetivo é ser o mais abrangente possível.
-    # Adicionado (?:_OP|OPE)?([A-Za-z0-9]+)? para capturar OP/OPE e o valor, ou apenas o valor.
-    # Adicionado (?:_)?([A-Za-z0-9]+)? para o modelo, que pode ou não ter um underscore antes.
-    # O grupo para o modelo é o último.
-    # A data e hora são obrigatórias.
-    regex_padrao = re.compile(r"historico_L1_(\d{8})_(\d{4})(?:_(OP|OPE)?([A-Za-z0-9]+))?(?:_([A-Za-z0-9]+))?\.csv$", re.IGNORECASE)
+    # Suporta OP ou OPE, e modelos com letras/numeros/hifens
+    # Ex: historico_L1_20260306_0718_OP999_FTI378L_BR.csv
+    # Ex: historico_L1_20260307_1704_OPE779_FT55DBR.csv
+    # Ex: historico_L1_20260308_0939_OP987_FTA987BR.csv
+    # Ex: historico_L1_20260307_TESTE_NOVO.csv (fallback para N/D)
+    regex_padrao = re.compile(r'historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP|OPE)(\w+)_([a-zA-Z0-9-]+)\.csv')
 
     for file_path in arquivos_encontrados:
         file_name = os.path.basename(file_path)
         match = regex_padrao.match(file_name)
 
         if match:
-            data_str, hora_str, op_prefix, operacao, modelo = match.groups()
-
-            # Tratar casos onde operacao ou modelo podem ser None
-            operacao = operacao if operacao else "N/D"
-            modelo = modelo if modelo else "N/D"
-
-            # Se op_prefix existe, mas operacao não, significa que o valor de operacao é o que deveria ser o modelo
-            # Ex: historico_L1_20260307_1704_OPE779.csv (sem modelo)
-            # Ex: historico_L1_20260307_1704_FT55DBR.csv (modelo sem OP/OPE)
-            # Este regex é complexo, vamos simplificar a extração para garantir que pegue o que existe.
-
-            # Nova tentativa de extração mais robusta para operação e modelo
-            partes_nome = file_name.replace('.csv', '').split('_')
-
-            # Exemplo: historico_L1_20260306_0718_OP999_FTI378L_BR
-            # partes_nome = ['historico', 'L1', '20260306', '0718', 'OP999', 'FTI378L', 'BR']
-
-            # Vamos tentar pegar a operação e o modelo de forma mais flexível
-            operacao_final = "N/D"
-            modelo_final = "N/D"
-
-            # A partir do 5º elemento (índice 4) em diante, pode ser operação ou modelo
-            if len(partes_nome) > 4:
-                # Se o 5º elemento começa com OP ou OPE, é a operação
-                if partes_nome[4].startswith(('OP', 'OPE')):
-                    operacao_final = partes_nome[4]
-                    if len(partes_nome) > 5: # O próximo pode ser o modelo
-                        modelo_final = "_".join(partes_nome[5:]) # Junta o resto como modelo
-                else: # Se não começa com OP/OPE, assumimos que é o modelo
-                    modelo_final = "_".join(partes_nome[4:]) # Junta o resto como modelo
+            ano, mes, dia, hora_str, op_prefix, operacao, modelo = match.groups()
+            data_str = f"{dia}/{mes}/{ano}"
+            hora_formatada = f"{hora_str[:2]}:{hora_str[2:]}:00" # HHMM -> HH:MM:SS
 
             try:
-                data_obj = datetime.strptime(data_str, "%Y%m%d")
-                hora_obj = datetime.strptime(hora_str, "%H%M").time()
-
-                todos_arquivos.append({
-                    "caminho": file_path,
-                    "nome": file_name,
-                    "data": data_obj,
-                    "data_f": data_obj.strftime("%d/%m/%Y"),
-                    "hora": hora_obj.strftime("%H:%M"),
-                    "ano": data_obj.year,
-                    "mes": data_obj.month,
-                    "operacao": operacao_final,
-                    "modelo": modelo_final
-                })
+                data_obj = datetime.strptime(data_str, "%d/%m/%Y").date()
             except ValueError:
-                st.warning(f"Nome de arquivo CSV inválido: {file_name}. Não segue o padrão esperado. Ignorando.")
-        else:
-            st.warning(f"Nome de arquivo CSV inválido: {file_name}. Não segue o padrão esperado. Ignorando.")
-    return todos_arquivos
+                data_obj = None # Caso a data não seja válida
 
-@st.cache_data(ttl=3600) # Cache por 1 hora
+            lista_arquivos_meta.append({
+                'path': file_path,
+                'nome': file_name,
+                'data': data_obj,
+                'data_str': data_str,
+                'hora': hora_formatada,
+                'ano': ano,
+                'mes': mes,
+                'dia': dia,
+                'operacao': f"{op_prefix}{operacao}",
+                'modelo': modelo
+            })
+        else:
+            # Fallback para arquivos que não seguem o padrão exato
+            st.warning(f"Nome de arquivo CSV inválido: {file_name}. Não segue o padrão esperado. Ignorando.")
+            # Adiciona com N/D para que apareça na lista, mas com dados incompletos
+            try:
+                # Tenta extrair data e hora minimamente
+                partes = file_name.split('_')
+                if len(partes) >= 4:
+                    ano_f = partes[2][:4]
+                    mes_f = partes[2][4:6]
+                    dia_f = partes[2][6:8]
+                    data_str_f = f"{dia_f}/{mes_f}/{ano_f}"
+                    hora_str_f = partes[3]
+                    hora_formatada_f = f"{hora_str_f[:2]}:{hora_str_f[2:]}:00"
+                    data_obj_f = datetime.strptime(data_str_f, "%d/%m/%Y").date()
+                else:
+                    data_str_f = "N/D"
+                    hora_formatada_f = "N/D"
+                    data_obj_f = None
+                    ano_f = "N/D"
+                    mes_f = "N/D"
+                    dia_f = "N/D"
+            except Exception:
+                data_str_f = "N/D"
+                hora_formatada_f = "N/D"
+                data_obj_f = None
+                ano_f = "N/D"
+                mes_f = "N/D"
+                dia_f = "N/D"
+
+            lista_arquivos_meta.append({
+                'path': file_path,
+                'nome': file_name,
+                'data': data_obj_f,
+                'data_str': data_str_f,
+                'hora': hora_formatada_f,
+                'ano': ano_f,
+                'mes': mes_f,
+                'dia': dia_f,
+                'operacao': 'N/D',
+                'modelo': 'N/D'
+            })
+    return sorted(lista_arquivos_meta, key=lambda x: (x['data'] if x['data'] else datetime.min.date(), x['hora']), reverse=True)
+
+
+@st.cache_data
 def carregar_csv(file_path):
     """
-    Carrega um arquivo CSV, trata o cabeçalho misto e limpa os dados.
+    Carrega um arquivo CSV, detecta o separador, limpa o cabeçalho e as colunas.
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        # Ler as primeiras linhas para detectar o separador e o cabeçalho
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.readlines()
 
+        # Encontrar a linha do cabeçalho real (que não seja a linha de traços)
         header_line_index = -1
-        data_start_index = -1
-
-        # Encontra a linha do cabeçalho e a linha de início dos dados
         for i, line in enumerate(lines):
-            if 'Date' in line and 'Time' in line and ('ambiente' in line or 'entrada' in line):
+            if not line.strip().startswith('|---'): # Ignora linhas de separação
                 header_line_index = i
-            if '---|---|' in line: # Linha de separação dos dados
-                data_start_index = i + 1 # Os dados começam após esta linha
-            if header_line_index != -1 and data_start_index != -1:
                 break
 
-        if header_line_index == -1 or data_start_index == -1:
-            st.error(f"Formato de cabeçalho ou separador de dados inválido no arquivo: {os.path.basename(file_path)}")
-            return pd.DataFrame()
+        if header_line_index == -1:
+            raise ValueError("Não foi possível encontrar uma linha de cabeçalho válida no CSV.")
 
-        # Extrai os nomes das colunas da linha do cabeçalho
+        # Tentar inferir o separador (priorizando pipe, depois vírgula)
+        # Analisa a linha do cabeçalho para ver qual separador tem mais ocorrências
         header_line = lines[header_line_index]
-        # Remove aspas duplas, espaços extras e divide por vírgula ou pipe
-        raw_columns = re.split(r'[|,]', header_line.strip().replace('"', ''))
+        if '|' in header_line and header_line.count('|') > header_line.count(','):
+            sep = '|'
+        else:
+            sep = ','
 
-        # Limpa e padroniza os nomes das colunas
-        column_names = [col.strip().lower() for col in raw_columns if col.strip()]
+        # Carregar o CSV com o separador detectado e pulando linhas antes do cabeçalho
+        df = pd.read_csv(file_path, sep=sep, skiprows=header_line_index, encoding='utf-8', errors='ignore')
 
-        # Lê os dados, pulando as linhas até o início dos dados
-        df = pd.read_csv(
-            file_path,
-            sep='|',
-            skiprows=data_start_index,
-            header=None, # Não usa o cabeçalho do CSV diretamente
-            names=column_names, # Usa os nomes de colunas limpos
-            engine='python', # Necessário para skiprows e sep complexos
-            encoding='utf-8'
-        )
+        # Limpeza do cabeçalho: remover espaços, aspas e caracteres indesejados
+        df.columns = df.columns.str.strip().str.replace('"', '').str.replace("'", "").str.lower()
 
-        # Remove a primeira e última coluna se estiverem vazias (resíduo do separador |)
-        if not df.empty:
-            if df.iloc[:, 0].isnull().all():
-                df = df.iloc[:, 1:]
-            if df.iloc[:, -1].isnull().all():
+        # Remover colunas totalmente vazias (que podem surgir de separadores extras no final)
+        df = df.dropna(axis=1, how='all')
+
+        # Remover a última coluna se for totalmente vazia (comum em CSVs com separador extra no final)
+        if not df.empty and df.iloc[:, -1].isnull().all().all():
                 df = df.iloc[:, :-1]
 
-            # Limpa espaços em branco das colunas de string
-            for col in df.select_dtypes(include=['object']).columns:
-                df[col] = df[col].astype(str).str.strip()
+        # Limpa espaços em branco das colunas de string
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].astype(str).str.strip()
 
-            # Converte colunas numéricas, tratando erros
-            for col in ['ambiente', 'entrada', 'saida', 'setpoint', 'histerese', 'ciclos', 'tempo_ciclo']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                    # Preenche NaNs com 0 ou outro valor padrão se for o caso
-                    df[col] = df[col].fillna(0) # Ou df[col].fillna(df[col].mean())
+        # Converte colunas numéricas, tratando erros
+        for col in ['ambiente', 'entrada', 'saida', 'setpoint', 'histerese', 'ciclos', 'tempo_ciclo']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                # Preenche NaNs com 0 ou outro valor padrão se for o caso
+                df[col] = df[col].fillna(0) # Ou df[col].fillna(df[col].mean())
 
-            # Cria coluna datetime combinando 'date' e 'time'
-            if 'date' in df.columns and 'time' in df.columns:
-                df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['time'], errors='coerce', format='%d/%m/%Y %H:%M:%S')
-                df = df.dropna(subset=['datetime']) # Remove linhas com datetime inválido
-            else:
-                st.warning(f"Colunas 'date' ou 'time' não encontradas no arquivo {os.path.basename(file_path)}. Gráficos de tempo podem ser afetados.")
-                df['datetime'] = pd.to_datetime(df.index, unit='s') # Fallback para índice como datetime
+        # Cria coluna datetime combinando 'date' e 'time'
+        if 'date' in df.columns and 'time' in df.columns:
+            df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['time'], errors='coerce', format='%d/%m/%Y %H:%M:%S')
+            df = df.dropna(subset=['datetime']) # Remove linhas com datetime inválido
+        else:
+            st.warning(f"Colunas 'date' ou 'time' não encontradas no arquivo {os.path.basename(file_path)}. Gráficos de tempo podem ser afetados.")
+            df['datetime'] = pd.to_datetime(df.index, unit='s') # Fallback para índice como datetime
 
         return df
     except Exception as e:
         st.error(f"Erro ao carregar ou processar o arquivo {os.path.basename(file_path)}: {e}")
         return pd.DataFrame()
+
+# Função para exibir cards de valor
+def mostra_valor(label, value, icon, color="blue"):
+    st.markdown(f"""
+    <div class="ft-card">
+        <i class="bi bi-{icon} ft-icon {color}"></i>
+        <span class="ft-label">{label}</span>
+        <span class="ft-value">{value}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+# -------------------------------------------------
+# FUNÇÃO DE GERAÇÃO DE PDF (AGORA COM FPDF2)
+# -------------------------------------------------
+def gerar_pdf(df, filename="relatorio.pdf"):
+    pdf = FPDF(orientation='L', unit='mm', format='A4') # Orientação paisagem para tabelas largas
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    # Título
+    pdf.cell(0, 10, "Relatório de Histórico de Dados Fromtherm", 0, 1, 'C')
+    pdf.ln(10)
+
+    # Informações básicas (se disponíveis)
+    if not df.empty:
+        pdf.set_font("Arial", size=10)
+        pdf.cell(0, 7, f"Data do Relatório: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", 0, 1)
+
+        # Tenta pegar a primeira e última data do DataFrame
+        if 'datetime' in df.columns and not df['datetime'].empty:
+            primeira_data = df['datetime'].min().strftime('%d/%m/%Y %H:%M:%S')
+            ultima_data = df['datetime'].max().strftime('%d/%m/%Y %H:%M:%S')
+            pdf.cell(0, 7, f"Período dos Dados: {primeira_data} a {ultima_data}", 0, 1)
+        pdf.ln(5)
+
+    # Cabeçalho da tabela
+    pdf.set_font("Arial", 'B', 8) # Fonte menor e negrito para o cabeçalho da tabela
+    col_widths = [20, 25, 25, 20, 20, 20, 20, 20, 20, 20, 20] # Ajuste as larguras conforme necessário
+    headers = ['Data', 'Hora', 'Ambiente', 'Entrada', 'Saída', 'Temperatura', 'Setpoint', 'Histerese', 'Ciclos', 'Tempo Ciclo', 'Operação']
+
+    # Desenha o cabeçalho
+    for i, header in enumerate(headers):
+        pdf.cell(col_widths[i], 7, header, 1, 0, 'C')
+    pdf.ln()
+
+    # Dados da tabela
+    pdf.set_font("Arial", size=7) # Fonte ainda menor para os dados
+    for index, row in df.iterrows():
+        # Formata os valores para exibição
+        data_val = row['date'] if 'date' in row else 'N/D'
+        hora_val = row['time'] if 'time' in row else 'N/D'
+        ambiente_val = f"{row['ambiente']:.2f}" if 'ambiente' in row else 'N/D'
+        entrada_val = f"{row['entrada']:.2f}" if 'entrada' in row else 'N/D'
+        saida_val = f"{row['saida']:.2f}" if 'saida' in row else 'N/D'
+        temperatura_val = f"{row['temperatura']:.2f}" if 'temperatura' in row else 'N/D'
+        setpoint_val = f"{row['setpoint']:.2f}" if 'setpoint' in row else 'N/D'
+        histerese_val = f"{row['histerese']:.2f}" if 'histerese' in row else 'N/D'
+        ciclos_val = str(int(row['ciclos'])) if 'ciclos' in row else 'N/D'
+        tempo_ciclo_val = f"{row['tempo_ciclo']:.2f}" if 'tempo_ciclo' in row else 'N/D'
+        operacao_val = row['operacao'] if 'operacao' in row else 'N/D' # Adicionado 'operacao'
+
+        values = [
+            data_val, hora_val, ambiente_val, entrada_val, saida_val, temperatura_val,
+            setpoint_val, histerese_val, ciclos_val, tempo_ciclo_val, operacao_val
+        ]
+
+        # Verifica se a página atual tem espaço suficiente para a próxima linha
+        # Se não tiver, adiciona uma nova página
+        if pdf.get_y() + 7 > pdf.h - pdf.b_margin:
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 8)
+            for i, header in enumerate(headers):
+                pdf.cell(col_widths[i], 7, header, 1, 0, 'C')
+            pdf.ln()
+            pdf.set_font("Arial", size=7)
+
+        for i, value in enumerate(values):
+            pdf.cell(col_widths[i], 7, str(value), 1, 0, 'C')
+        pdf.ln()
+
+    # Salvar o PDF em um buffer de bytes
+    pdf_output = BytesIO()
+    pdf.output(pdf_output, 'S') # 'S' para retornar como string (bytes)
+    return pdf_output.getvalue()
+
 
 # -------------------------------------------------
 # 4. LAYOUT DO STREAMLIT
@@ -267,7 +333,7 @@ if todos_arquivos_meta:
     operacoes_unicas = sorted(list(set([a['operacao'] for a in todos_arquivos_meta if a['operacao'] != 'N/D'])))
     anos_unicos = sorted(list(set([a['ano'] for a in todos_arquivos_meta])), reverse=True)
     meses_unicos = sorted(list(set([a['mes'] for a in todos_arquivos_meta])))
-    datas_unicas = sorted(list(set([a['data'] for a in todos_arquivos_meta])), reverse=True)
+    datas_unicas = sorted(list(set([a['data'] for a in todos_arquivos_meta if a['data'] is not None])), reverse=True)
 
     # Adicionar "Todos" como opção para os filtros
     modelos_filtro = ["Todos"] + modelos_unicos
@@ -294,51 +360,34 @@ if todos_arquivos_meta:
     if mes_selecionado != "Todos":
         arquivos_filtrados = [a for a in arquivos_filtrados if a['mes'] == mes_selecionado]
     if data_selecionada != "Todos":
-        arquivos_filtrados = [a for a in arquivos_filtrados if a['data'].strftime("%d/%m/%Y") == data_selecionada]
+        arquivos_filtrados = [a for a in arquivos_filtrados if a['data_str'] == data_selecionada]
 
-    # Ordenar por data e hora (mais recente primeiro)
-    arquivos_filtrados = sorted(arquivos_filtrados, key=lambda x: (x['data'], x['hora']), reverse=True)
+    # Ordenar arquivos filtrados por data e hora
+    arquivos_filtrados = sorted(arquivos_filtrados, key=lambda x: (x['data'] if x['data'] else datetime.min.date(), x['hora']), reverse=True)
+
+    # Carregar o último arquivo para os cards de "Última Leitura"
+    df_ultima_leitura = pd.DataFrame()
+    ultima_linha = {}
+    if arquivos_filtrados:
+        df_ultima_leitura = carregar_csv(arquivos_filtrados[0]['path'])
+        if not df_ultima_leitura.empty:
+            ultima_linha = df_ultima_leitura.iloc[-1].to_dict()
 
     # 4.2. CARDS DE ÚLTIMA LEITURA
     # -------------------------------------------------
-    st.subheader("Última Leitura Disponível")
-    if arquivos_filtrados:
-        ultimo_arquivo_meta = arquivos_filtrados[0]
-        df_ultimo = carregar_csv(ultimo_arquivo_meta['caminho'])
+    st.subheader("Última Leitura Registrada")
+    col1, col2, col3, col4 = st.columns(4)
 
-        if not df_ultimo.empty:
-            ultima_linha = df_ultimo.iloc[-1] # Pega a última linha do DataFrame
+    with col1:
+        mostra_valor("T-Ambiente", f"{ultima_linha.get('ambiente', 'N/D'):.2f}" if isinstance(ultima_linha.get('ambiente'), (int, float)) else "N/D", "thermometer-half", "azul")
+    with col2:
+        mostra_valor("T-Entrada", f"{ultima_linha.get('entrada', 'N/D'):.2f}" if isinstance(ultima_linha.get('entrada'), (int, float)) else "N/D", "arrow-down-circle", "verde")
+    with col3:
+        mostra_valor("T-Saída", f"{ultima_linha.get('saida', 'N/D'):.2f}" if isinstance(ultima_linha.get('saida'), (int, float)) else "N/D", "arrow-up-circle", "vermelho")
+    with col4:
+        mostra_valor("Setpoint", f"{ultima_linha.get('setpoint', 'N/D'):.2f}" if isinstance(ultima_linha.get('setpoint'), (int, float)) else "N/D", "gear", "ouro")
 
-            st.markdown(f"""
-                <div style="text-align: center; font-size: 16px; font-weight: bold; color: #003366; margin-bottom: 20px;">
-                    Modelo: {ultimo_arquivo_meta['modelo']} | Operação: {ultimo_arquivo_meta['operacao']} | Data: {ultimo_arquivo_meta['data_f']} | Hora: {ultimo_arquivo_meta['hora']}
-                </div>
-            """, unsafe_allow_html=True)
-
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                mostra_valor("T-Ambiente", f"{ultima_linha['ambiente']:.2f}", "°C", "bi-thermometer-half")
-            with col2:
-                mostra_valor("T-Entrada", f"{ultima_linha['entrada']:.2f}", "°C", "bi-arrow-down-circle")
-            with col3:
-                mostra_valor("T-Saída", f"{ultima_linha['saida']:.2f}", "°C", "bi-arrow-up-circle")
-            with col4:
-                mostra_valor("Setpoint", f"{ultima_linha['setpoint']:.2f}", "°C", "bi-gear")
-
-            col5, col6, col7 = st.columns(3)
-            with col5:
-                mostra_valor("Histerese", f"{ultima_linha['histerese']:.2f}", "°C", "bi-arrow-left-right")
-            with col6:
-                mostra_valor("Ciclos", f"{int(ultima_linha['ciclos'])}", "", "bi-arrow-repeat")
-            with col7:
-                mostra_valor("Tempo Ciclo", f"{ultima_linha['tempo_ciclo']:.2f}", "s", "bi-hourglass-split")
-
-        else:
-            st.info("Nenhum dado válido encontrado no último histórico para exibir.")
-    else:
-        st.info("Nenhum histórico disponível com os filtros aplicados.")
-
-    st.markdown("---") # Separador
+    st.markdown("---")
 
     # 4.3. ABAS DE NAVEGAÇÃO
     # -------------------------------------------------
@@ -348,106 +397,84 @@ if todos_arquivos_meta:
         st.subheader("Históricos Disponíveis")
         if arquivos_filtrados:
             for arquivo_meta in arquivos_filtrados:
-                with st.expander(f"**{arquivo_meta['modelo']} - Operação: {arquivo_meta['operacao']} - Data: {arquivo_meta['data_f']} {arquivo_meta['hora']}**"):
-                    df_historico = carregar_csv(arquivo_meta['caminho'])
-                    if not df_historico.empty:
-                        st.dataframe(df_historico, use_container_width=True)
+                with st.expander(f"**{arquivo_meta['nome']}** (Modelo: {arquivo_meta['modelo']}, Operação: {arquivo_meta['operacao']}, Data: {arquivo_meta['data_str']} {arquivo_meta['hora']})"):
+                    df_arquivo = carregar_csv(arquivo_meta['path'])
+                    if not df_arquivo.empty:
+                        st.dataframe(df_arquivo)
 
-                        # Botões de Download
                         col_dl1, col_dl2 = st.columns(2)
                         with col_dl1:
-                            # Download como PDF
-                            pdf_buffer = gerar_pdf(df_historico, arquivo_meta)
-                            st.download_button(
-                                label="Baixar como PDF",
-                                data=pdf_buffer.getvalue(),
-                                file_name=f"historico_{arquivo_meta['modelo']}_{arquivo_meta['operacao']}_{arquivo_meta['data_f'].replace('/', '')}_{arquivo_meta['hora'].replace(':', '')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                        with col_dl2:
-                            # Download como Excel
-                            excel_buffer = BytesIO()
-                            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-                                df_historico.to_excel(writer, index=False, sheet_name='Historico')
+                            # Botão de Download CSV (Excel)
+                            csv_buffer = BytesIO()
+                            df_arquivo.to_excel(csv_buffer, index=False, engine='xlsxwriter')
                             st.download_button(
                                 label="Baixar como Excel",
-                                data=excel_buffer.getvalue(),
-                                file_name=f"historico_{arquivo_meta['modelo']}_{arquivo_meta['operacao']}_{arquivo_meta['data_f'].replace('/', '')}_{arquivo_meta['hora'].replace(':', '')}.xlsx",
+                                data=csv_buffer.getvalue(),
+                                file_name=f"{arquivo_meta['nome'].replace('.csv', '')}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                 use_container_width=True
                             )
+                        with col_dl2:
+                            # Botão de Download PDF
+                            pdf_bytes = gerar_pdf(df_arquivo, filename=f"{arquivo_meta['nome'].replace('.csv', '')}.pdf")
+                            st.download_button(
+                                label="Baixar como PDF",
+                                data=pdf_bytes,
+                                file_name=f"{arquivo_meta['nome'].replace('.csv', '')}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
                     else:
-                        st.info(f"Não foi possível carregar os dados para {arquivo_meta['nome']}.")
+                        st.warning("Não foi possível carregar os dados deste arquivo.")
         else:
             st.info("Nenhum histórico disponível com os filtros aplicados.")
 
     with tab2:
         st.subheader("Crie Seu Gráfico")
-        if todos_arquivos_meta:
-            # Filtros para o gráfico (podem ser diferentes dos filtros de histórico)
-            modelos_grafico = sorted(list(set([a['modelo'] for a in todos_arquivos_meta if a['modelo'] != 'N/D'])))
-            operacoes_grafico = sorted(list(set([a['operacao'] for a in todos_arquivos_meta if a['operacao'] != 'N/D'])))
-            datas_grafico = sorted(list(set([a['data'] for a in todos_arquivos_meta])), reverse=True)
+        if arquivos_filtrados:
+            # Carregar todos os dados dos arquivos filtrados para o gráfico
+            df_todos_dados = pd.DataFrame()
+            for arquivo_meta in arquivos_filtrados:
+                df_temp = carregar_csv(arquivo_meta['path'])
+                if not df_temp.empty:
+                    df_todos_dados = pd.concat([df_todos_dados, df_temp], ignore_index=True)
 
-            modelo_selecionado_grafico = st.selectbox("Selecione o Modelo para o Gráfico", ["Selecione"] + modelos_grafico)
-            operacao_selecionada_grafico = st.selectbox("Selecione a Operação para o Gráfico", ["Selecione"] + operacoes_grafico)
-            data_selecionada_grafico = st.selectbox("Selecione a Data para o Gráfico", ["Selecione"] + [d.strftime("%d/%m/%Y") for d in datas_grafico])
+            if not df_todos_dados.empty and 'datetime' in df_todos_dados.columns:
+                # Opções de variáveis para o eixo Y
+                variaveis_numericas = df_todos_dados.select_dtypes(include=['number']).columns.tolist()
+                variaveis_para_grafico = [v for v in variaveis_numericas if v not in ['ciclos', 'tempo_ciclo']] # Exclui algumas que podem não fazer sentido no gráfico principal
 
-            arquivo_para_grafico = None
-            if modelo_selecionado_grafico != "Selecione" and operacao_selecionada_grafico != "Selecione" and data_selecionada_grafico != "Selecione":
-                for arquivo in todos_arquivos_meta:
-                    if (arquivo['modelo'] == modelo_selecionado_grafico and
-                        arquivo['operacao'] == operacao_selecionada_grafico and
-                        arquivo['data'].strftime("%d/%m/%Y") == data_selecionada_grafico):
-                        arquivo_para_grafico = arquivo
-                        break
+                if 'datetime' in variaveis_para_grafico:
+                    variaveis_para_grafico.remove('datetime') # datetime é o eixo X
 
-            if arquivo_para_grafico:
-                df_grafico = carregar_csv(arquivo_para_grafico['caminho'])
-                if not df_grafico.empty and 'datetime' in df_grafico.columns:
-                    # Selecionar apenas colunas numéricas para o gráfico
-                    colunas_numericas = df_grafico.select_dtypes(include=['number']).columns.tolist()
-                    # Remover colunas que não fazem sentido em um gráfico de linha (ex: ID, se houver)
-                    colunas_numericas = [col for col in colunas_numericas if col not in ['id', 'index']]
+                if variaveis_para_grafico:
+                    y_vars_selecionadas = st.multiselect(
+                        "Selecione as variáveis para o eixo Y",
+                        options=variaveis_para_grafico,
+                        default=[v for v in ['ambiente', 'entrada', 'saida', 'setpoint'] if v in variaveis_para_grafico]
+                    )
 
-                    if colunas_numericas:
-                        variaveis_selecionadas = st.multiselect(
-                            "Selecione as variáveis para o gráfico",
-                            colunas_numericas,
-                            default=colunas_numericas[:2] if len(colunas_numericas) >= 2 else colunas_numericas
+                    if y_vars_selecionadas:
+                        fig = px.line(
+                            df_todos_dados,
+                            x='datetime',
+                            y=y_vars_selecionadas,
+                            title='Variação das Temperaturas ao Longo do Tempo',
+                            labels={'datetime': 'Data e Hora', 'value': 'Valor'},
+                            hover_data={'datetime': '|%d/%m/%Y %H:%M:%S'}
                         )
-
-                        if variaveis_selecionadas:
-                            # Garante que 'datetime' é o eixo X
-                            df_plot = df_grafico[['datetime'] + variaveis_selecionadas].melt(
-                                id_vars=['datetime'], var_name="Variável", value_name="Valor"
-                            )
-
-                            fig = px.line(
-                                df_plot,
-                                x="datetime",
-                                y="Valor",
-                                color="Variável",
-                                title=f"Gráfico de Tendência - Modelo: {arquivo_para_grafico['modelo']}, Operação: {arquivo_para_grafico['operacao']} em {arquivo_para_grafico['data_f']}",
-                                labels={"datetime": "Data e Hora", "value": "Valor"},
-                                hovermode="x unified",
-                                legend_title="Variáveis",
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-
-                            st.markdown(
-                                "- Use o botão de **fullscreen** no gráfico (canto superior direito do gráfico) para tela cheia.\n"
-                                "- Use o ícone de **câmera** para baixar como imagem (PNG).\n"
-                                "- A imagem pode ser enviada por WhatsApp, e-mail, etc., em PC ou celular."
-                            )
-                        else:
-                            st.info("Selecione pelo menos uma variável para gerar o gráfico.")
+                        fig.update_xaxes(
+                            dtick="d1", # Tick a cada dia
+                            tickformat="%d/%m/%Y\n%H:%M", # Formato de data e hora
+                            showgrid=True
+                        )
+                        fig.update_layout(hovermode="x unified")
+                        st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.info("Nenhuma variável numérica encontrada para gerar gráficos neste histórico.")
+                        st.info("Selecione pelo menos uma variável para gerar o gráfico.")
                 else:
-                    st.info("Nenhum histórico disponível para gerar gráficos com os filtros aplicados ou dados inválidos.")
+                    st.warning("Não há variáveis numéricas adequadas para gerar gráficos neste conjunto de dados.")
             else:
-                st.info("Selecione um Modelo, Operação e Data para gerar o gráfico.")
+                st.info("Não há dados suficientes ou coluna 'datetime' para gerar gráficos com os filtros aplicados.")
         else:
             st.info("Nenhum histórico disponível para gerar gráficos com os filtros aplicados.")
