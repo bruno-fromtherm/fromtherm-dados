@@ -12,44 +12,87 @@ import numpy as np # Importar numpy para np.nan
 st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
 
 # =========================
-#  CSS GLOBAL (fundo + correção do "0" e responsividade)
+#  CSS GLOBAL (Tema Industrial e Responsividade)
 # =========================
 st.markdown(
     """
     <style>
-    /* Fundo geral da página (tom próximo ao site Fromtherm) */
+    /* Fundo geral da página - Gradiente Industrial */
     .stApp {
-        background-color: #f4f6f9;
+        background: linear-gradient(to bottom, #001f3f, #000000); /* Azul Marinho Profundo para Preto */
+        color: #e0e0e0; /* Cinza Gelo para texto padrão */
+        font-family: 'Inter', 'Roboto', sans-serif; /* Tipografia moderna */
     }
 
-    /* Container principal - deixa conteúdo sobre "cartão branco" */
+    /* Container principal - Cartão translúcido com desfoque */
     .main > div {
-        background-color: #ffffff;
-        padding: 10px 25px 40px 25px;
+        background-color: rgba(255, 255, 255, 0.05); /* Fundo branco translúcido */
+        backdrop-filter: blur(10px); /* Efeito de desfoque */
         border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-top: 5px;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2); /* Sombra mais pronunciada */
+        border: 1px solid rgba(255, 255, 255, 0.1); /* Borda sutil */
+        padding: 20px 30px 40px 30px; /* Ajusta padding */
+        margin-top: 10px;
     }
 
     /* Título principal */
     h1 {
-        color: #003366 !important;  /* azul escuro Fromtherm */
+        color: #00bfff !important; /* Azul Neon para o título principal */
         font-weight: 800 !important;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.05em;
+        text-shadow: 0 0 8px rgba(0, 191, 255, 0.5); /* Efeito de brilho */
+    }
+
+    /* Subtítulos e outros textos importantes */
+    h2, h3, h4, h5, h6 {
+        color: #00bfff !important; /* Azul Neon para subtítulos */
+        font-weight: 600 !important;
+    }
+    p, label, .stMarkdown {
+        color: #e0e0e0; /* Cinza Gelo para textos gerais */
     }
 
     /* Linha abaixo do título */
     h1 + div {
-        border-bottom: 1px solid #dde2eb;
-        margin-bottom: 8px;
-        padding-bottom: 4px;
+        border-bottom: 1px solid rgba(0, 191, 255, 0.3); /* Linha de destaque azul neon */
+        margin-bottom: 15px;
+        padding-bottom: 8px;
     }
 
-    /* Sidebar com leve separação */
+    /* Sidebar com leve separação e tema escuro */
     section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #dde2eb;
+        background-color: #001a33; /* Azul escuro para sidebar */
+        border-right: 1px solid rgba(0, 191, 255, 0.2);
+        color: #e0e0e0;
     }
+    section[data-testid="stSidebar"] .stButton > button {
+        background-color: #003366; /* Botões da sidebar */
+        color: #e0e0e0;
+        border: 1px solid #00bfff;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #004080;
+        border-color: #00ffff;
+    }
+    section[data-testid="stSidebar"] .stSelectbox > div > div {
+        background-color: #003366;
+        color: #e0e0e0;
+        border: 1px solid #00bfff;
+    }
+    section[data-testid="stSidebar"] .stSelectbox > div > div > div > span {
+        color: #e0e0e0;
+    }
+    section[data-testid="stSidebar"] .stSelectbox > div > div > div > div > div {
+        background-color: #003366; /* Opções do selectbox */
+        color: #e0e0e0;
+    }
+    section[data-testid="stSidebar"] .stSelectbox > div > div > div > div > div:hover {
+        background-color: #004080;
+    }
+    section[data-testid="stSidebar"] .stSelectbox > label {
+        color: #00bfff; /* Rótulo do selectbox */
+    }
+
 
     /* Esconder qualquer pequeno span/ícone no topo esquerdo
        que esteja causando o "0" indesejado */
@@ -58,42 +101,115 @@ st.markdown(
         color: transparent !important;
     }
 
-    /* Estilo para os cards de métricas */
+    /* Estilo para os cards de métricas (mantendo o fundo translúcido) */
     .metric-card {
-        background-color: #f8f9fa;
+        background-color: rgba(255, 255, 255, 0.05); /* Fundo branco translúcido */
+        backdrop-filter: blur(10px); /* Efeito de desfoque */
         border-radius: 8px;
         padding: 15px;
         margin-bottom: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1); /* Borda sutil */
     }
     .metric-card h4 {
-        color: #003366;
+        color: #00bfff; /* Azul Neon para títulos das métricas */
         font-size: 1.1em;
         margin-bottom: 5px;
+        font-weight: 600;
     }
-    /* Estilo para os valores dentro do st.metric */
+    /* Estilo para os valores dentro do st.metric (se usado) */
     .st-emotion-cache-1r6dm1x { /* Alvo para o valor do st.metric */
         font-size: 1.5em;
         font-weight: bold;
-        color: #333;
+        color: #e0e0e0; /* Cinza Gelo para valores */
     }
-    /* Estilo para o ícone dentro do st.metric */
+    /* Estilo para o ícone dentro do st.metric (se usado) */
     .st-emotion-cache-1r6dm1x svg { /* Alvo para o ícone do st.metric */
         font-size: 1.2em;
         margin-right: 5px;
+        color: #00bfff; /* Azul Neon para ícones */
     }
 
     /* Cores específicas para T-Entrada e T-Saída */
     .temp-entrada-value {
-        color: #007bff; /* Azul */
+        color: #00ffff; /* Azul Neon */
+        font-size: 1.5em;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(0, 255, 255, 0.5); /* Brilho */
+    }
+    .temp-saida-value {
+        color: #ff0000; /* Vermelho Vibrante */
+        font-size: 1.5em;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(255, 0, 0, 0.5); /* Brilho */
+    }
+    .metric-value { /* Estilo para outros valores de métrica */
+        color: #e0e0e0; /* Cinza Gelo */
         font-size: 1.5em;
         font-weight: bold;
     }
-    .temp-saida-value {
-        color: #dc3545; /* Vermelho */
-        font-size: 1.5em;
-        font-weight: bold;
+    .metric-icon { /* Estilo para outros ícones de métrica */
+        color: #00bfff; /* Azul Neon */
+        margin-right: 5px;
+    }
+
+    /* Estilo para os botões de arquivo */
+    .stButton > button {
+        background-color: #003366; /* Fundo azul escuro */
+        color: #e0e0e0; /* Texto cinza gelo */
+        border: 1px solid #00bfff; /* Borda azul neon */
+        border-radius: 5px;
+        padding: 8px 15px;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+    }
+    .stButton > button:hover {
+        background-color: #004080; /* Azul mais claro no hover */
+        border-color: #00ffff; /* Borda azul mais clara no hover */
+        color: #ffffff;
+        box-shadow: 0 0 10px rgba(0, 191, 255, 0.5); /* Brilho no hover */
+    }
+
+    /* Estilo para a tabela de dados */
+    .stDataFrame {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background-color: rgba(0, 0, 0, 0.1); /* Fundo escuro translúcido para a tabela */
+    }
+    .stDataFrame .dataframe {
+        background-color: transparent;
+        color: #e0e0e0;
+    }
+    .stDataFrame .dataframe th {
+        background-color: #003366; /* Cabeçalho da tabela */
+        color: #00bfff;
+        border-bottom: 1px solid #00bfff;
+    }
+    .stDataFrame .dataframe td {
+        color: #e0e0e0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Estilo para o multiselect de variáveis do gráfico */
+    .stMultiSelect > label {
+        color: #00bfff; /* Rótulo azul neon */
+    }
+    .stMultiSelect > div > div {
+        background-color: #003366;
+        color: #e0e0e0;
+        border: 1px solid #00bfff;
+    }
+    .stMultiSelect > div > div > div > div > div {
+        background-color: #003366; /* Opções do multiselect */
+        color: #e0e0e0;
+    }
+    .stMultiSelect > div > div > div > div > div:hover {
+        background-color: #004080;
+    }
+    .stMultiSelect .st-emotion-cache-1r6dm1x { /* Tags selecionadas */
+        background-color: #00bfff;
+        color: #000000;
     }
 
     /* Ajustes de responsividade para telas menores */
@@ -110,18 +226,19 @@ st.markdown(
         .metric-card h4 {
             font-size: 1em; /* Reduz o tamanho da fonte dos títulos das métricas */
         }
-        .st-emotion-cache-1r6dm1x, .temp-entrada-value, .temp-saida-value { /* Valor da métrica */
+        .metric-value, .temp-entrada-value, .temp-saida-value { /* Valor da métrica */
             font-size: 1.2em; /* Reduz o tamanho da fonte dos valores */
         }
-        /* Ajusta o layout dos botões de arquivo para empilhar em telas pequenas */
-        div[data-testid="stVerticalBlock"] > div > div > div:has(button) {
-            width: 100% !important; /* Faz os botões ocuparem a largura total */
-            margin-bottom: 5px; /* Adiciona um pequeno espaçamento entre eles */
+        /* Força o empilhamento vertical de todos os elementos em colunas */
+        div[data-testid="stVerticalBlock"] > div > div > div:has(button),
+        div[data-testid="stHorizontalBlock"] > div > div > div:has(.metric-card),
+        div[data-testid="stHorizontalBlock"] > div > div > div:has(.stPlotlyChart) {
+            width: 100% !important; /* Faz os elementos ocuparem a largura total */
+            margin-bottom: 10px; /* Adiciona espaçamento entre eles */
         }
-        /* Ajusta o layout das colunas de métricas para empilhar em telas pequenas */
-        div[data-testid="stHorizontalBlock"] > div > div > div:has(.metric-card) {
-            width: 100% !important; /* Faz os cards ocuparem a largura total */
-            margin-bottom: 5px; /* Adiciona um pequeno espaçamento entre eles */
+        /* Garante que os gráficos ocupem 100% da largura */
+        .stPlotlyChart {
+            width: 100% !important;
         }
     }
     </style>
@@ -132,10 +249,22 @@ st.markdown(
 # --- Logo e cabeçalho na barra lateral ---
 LOGO_URL = "https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png"
 st.sidebar.image(LOGO_URL, use_column_width=True)
-st.sidebar.title("FromTherm")
+st.sidebar.markdown("<h2 style='color: #00bfff;'>FromTherm</h2>", unsafe_allow_html=True)
 
 # --- Pasta onde ficam os arquivos de histórico ---
 DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
+
+
+# --- Função para formatar números para o padrão brasileiro ---
+def format_br_number(value, decimals=2, unit=""):
+    if pd.isna(value):
+        return "N/D"
+    try:
+        # Converte para float, arredonda e formata com vírgula decimal e ponto de milhar
+        formatted_value = f"{float(value):,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"{formatted_value} {unit}".strip()
+    except (ValueError, TypeError):
+        return "N/D"
 
 
 # --- Função para listar arquivos CSV localmente ---
@@ -166,30 +295,26 @@ def listar_arquivos_csv():
 
         if match:
             year_str, month_str, day_str, time_str, operacao, modelo = match.groups()
-
             try:
                 data = datetime.strptime(f"{year_str}{month_str}{day_str}", "%Y%m%d").date()
                 ano = int(year_str)
                 mes = int(month_str)
-                hora = f"{time_str[:2]}:{time_str[2:]}"
+                hora = time_str[:2] + ":" + time_str[2:] # Formata HH:MM
             except ValueError:
-                pass # Se a conversão de data/hora falhar, mantém como None
+                pass # Se a data/hora não puder ser parseada, mantém como None
 
-        info_arquivos.append(
-            {
-                "nome_arquivo": nome,
-                "caminho": caminho,
-                "linha": "L1", # Hardcoded como L1, ajuste se necessário
-                "modelo": modelo,
-                "operacao": operacao,
-                "data": data,
-                "ano": ano,
-                "mes": mes,
-                "hora": hora,
-            }
-        )
+        info_arquivos.append({
+            "nome_arquivo": nome,
+            "caminho": caminho,
+            "data": data,
+            "ano": ano,
+            "mes": mes,
+            "hora": hora,
+            "operacao": operacao,
+            "modelo": modelo,
+        })
 
-    # Ordena os arquivos pelo nome (que contém data e hora) para pegar o mais recente
+    # Ordena os arquivos pelo nome (que geralmente inclui data/hora) para pegar o mais recente
     info_arquivos.sort(key=lambda x: x['nome_arquivo'], reverse=True)
     return info_arquivos
 
@@ -197,11 +322,8 @@ def listar_arquivos_csv():
 # --- Função para carregar e pré-processar o CSV ---
 @st.cache_data(ttl=10)
 def carregar_csv_caminho(caminho_arquivo):
-    """
-    Carrega um arquivo CSV, pré-processa as linhas, renomeia colunas,
-    cria coluna DateTime e converte tipos.
-    """
     try:
+        # Lê o arquivo linha por linha para pré-processamento
         with open(caminho_arquivo, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
@@ -212,25 +334,24 @@ def carregar_csv_caminho(caminho_arquivo):
             if not line: # Ignora linhas vazias
                 continue
 
-            # Ignora a linha de separação de cabeçalho "| --- | --- |"
-            if re.match(r"^\|\s*-+\s*(\|\s*-+\s*)*\|$", line):
-                continue
-
-            # Processa linhas que começam e terminam com '|'
-            if line.startswith('|') and line.endswith('|'):
-                parts = [p.strip() for p in line.split('|') if p.strip()]
-                if parts:
-                    processed_lines.append(','.join(parts))
-                    if not header_found: # A primeira linha processada é o cabeçalho
-                        header_found = True
-            else: # Adiciona linhas que não seguem o padrão '| ... |' diretamente, se houver
-                processed_lines.append(line)
+            # Detecta o cabeçalho (primeira linha que não é a linha de separação)
+            if not header_found and not re.match(r"^\|-+\|-+", line):
+                # Remove barras externas e espaços extras, substitui barras internas por vírgulas
+                processed_line = re.sub(r'^\s*\|\s*|\s*\|\s*$', '', line) # Remove | do início/fim
+                processed_line = re.sub(r'\s*\|\s*', ',', processed_line) # Substitui | por ,
+                processed_lines.append(processed_line)
+                header_found = True
+            elif header_found and not re.match(r"^\|-+\|-+", line): # Ignora a linha de separação
+                # Processa linhas de dados
+                processed_line = re.sub(r'^\s*\|\s*|\s*\|\s*$', '', line)
+                processed_line = re.sub(r'\s*\|\s*', ',', processed_line)
+                processed_lines.append(processed_lines)
 
         if not processed_lines:
-            st.error(f"O arquivo '{os.path.basename(caminho_arquivo)}' está vazio ou não contém dados válidos.")
+            st.error(f"O arquivo {os.path.basename(caminho_arquivo)} está vazio ou não contém dados válidos.")
             return pd.DataFrame()
 
-        # Usa StringIO para ler as linhas processadas como um CSV
+        # Usa StringIO para ler o conteúdo processado como um CSV
         df = pd.read_csv(StringIO("\n".join(processed_lines)), sep=',', decimal='.', encoding='utf-8')
 
         # Mapeamento de nomes de colunas do CSV para nomes padronizados
@@ -247,113 +368,109 @@ def carregar_csv_caminho(caminho_arquivo):
             'vazao': 'Vazão',
             'kw aquecimento': 'Kw Aquecimento',
             'kw consumo': 'Kw Consumo',
-            'cop': 'COP'
+            'cop': 'COP',
         }
 
         # Renomeia as colunas existentes
         df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
 
-        # Garante que as colunas Date e Time existam antes de tentar combiná-las
+        # Cria a coluna DateTime combinando 'Date' e 'Time'
         if 'Date' in df.columns and 'Time' in df.columns:
-            # Tenta converter a coluna 'Date' para o formato YYYY-MM-DD se estiver em YYYY/MM/DD
+            # Tenta converter 'Date' para o formato YYYY-MM-DD se estiver em YYYY/MM/DD
             df['Date'] = df['Date'].astype(str).str.replace('/', '-')
-
-            # Combina 'Date' e 'Time' em uma única coluna 'DateTime'
-            df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], errors='coerce', format='%Y-%m-%d %H:%M:%S')
-
-            # Move 'DateTime' para a primeira coluna
-            df = df[['DateTime'] + [col for col in df.columns if col != 'DateTime']]
+            df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], errors='coerce')
         else:
-            st.warning(f"Colunas 'Date' ou 'Time' não encontradas no arquivo '{os.path.basename(caminho_arquivo)}'. Gráficos podem não funcionar.")
-            df['DateTime'] = pd.NaT # Not a Time
+            df['DateTime'] = pd.NaT # Not a Time se as colunas não existirem
 
         # Converte colunas numéricas para float, tratando erros
-        for col in df.columns:
-            if col not in ['Date', 'Time', 'DateTime']: # Não tenta converter colunas de data/hora
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+        numeric_cols = [col for col in df.columns if col not in ['Date', 'Time', 'DateTime']]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            # Substitui 000.0 ou 00000 por 0.0
+            df[col] = df[col].replace(0, 0.0) 
 
         return df
     except Exception as e:
-        st.error(f"Erro ao carregar o arquivo '{os.path.basename(caminho_arquivo)}': {e}")
+        st.error(f"Erro ao carregar o arquivo CSV: {e}")
         return pd.DataFrame()
 
-# --- Função para formatar números para o padrão brasileiro ---
-def format_br_number(value, decimals=2, unit=""):
-    if pd.isna(value):
-        return "N/D"
-    # Formata para float com 2 casas decimais, depois converte para string
-    # e substitui '.' por ',' para decimal, e adiciona '.' para milhar (se necessário)
-    formatted_value = f"{value:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"{formatted_value} {unit}"
 
 # =====================================================
-#  PAINEL: Última Leitura Registrada
+#  PAINEL DE ÚLTIMA LEITURA REGISTRADA
 # =====================================================
-st.markdown('<h3 style="color: #003366;">Último Dashboard Enviado</h3>', unsafe_allow_html=True)
+st.markdown("<h3 style='color: #00bfff;'>Último Dashboard Enviado:</h3>", unsafe_allow_html=True)
 
-all_files_info = listar_arquivos_csv()
-arquivo_mais_recente = all_files_info[0] if all_files_info else None
+arquivos_disponiveis = listar_arquivos_csv()
+arquivo_mais_recente = arquivos_disponiveis[0] if arquivos_disponiveis else None
 
 if arquivo_mais_recente:
-    st.markdown(f'<p style="color: #333333;">Arquivo: <strong>{arquivo_mais_recente["nome_arquivo"]}</strong></p>', unsafe_allow_html=True)
+    st.markdown(f"<p style='color: #e0e0e0;'>Arquivo: {arquivo_mais_recente['nome_arquivo']}</p>", unsafe_allow_html=True)
 
     ultima_leitura_dt = "N/D"
     if arquivo_mais_recente['data'] and arquivo_mais_recente['hora']:
         ultima_leitura_dt = f"{arquivo_mais_recente['data'].strftime('%d/%m/%Y')} {arquivo_mais_recente['hora']}"
-    st.markdown(f'<p style="color: #333333;">Última leitura: <strong>{ultima_leitura_dt}</strong></p>', unsafe_allow_html=True)
+    st.markdown(f"<p style='color: #e0e0e0;'>Última leitura: {ultima_leitura_dt}</p>", unsafe_allow_html=True)
 
-    df_ultima_leitura = carregar_csv_caminho(arquivo_mais_recente['caminho'])
+    df_recente = carregar_csv_caminho(arquivo_mais_recente['caminho'])
 
-    if not df_ultima_leitura.empty:
-        ultima_linha = df_ultima_leitura.iloc[-1].to_dict()
+    if not df_recente.empty:
+        ultima_linha = df_recente.iloc[-1] # Pega a última linha do DataFrame
 
-        # Mapeamento de métricas para exibição
-        metric_display_info = {
-            "T-Ambiente": {"label": "T-Ambiente", "icon": "🌍", "unit": "°C", "color_class": ""},
-            "Tensão": {"label": "Tensão", "icon": "⚡", "unit": "V", "color_class": ""},
-            "Corrente": {"label": "Corrente", "icon": "🔌", "unit": "A", "color_class": ""},
-            "Kcal/h": {"label": "Kcal/h", "icon": "🔥", "unit": "Kcal/h", "color_class": ""},
-            "Vazão": {"label": "Vazão", "icon": "💧", "unit": "L/h", "color_class": ""},
-            "Kw Aquecimento": {"label": "Kw Aquecimento", "icon": "♨️", "unit": "kW", "color_class": ""},
-            "Kw Consumo": {"label": "Kw Consumo", "icon": "💡", "unit": "kW", "color_class": ""},
-            "COP": {"label": "COP", "icon": "📈", "unit": "", "color_class": ""},
-            "ΔT": {"label": "ΔT", "icon": "🌡️", "unit": "°C", "color_class": ""},
-            "Entrada": {"label": "T-Entrada", "icon": "➡️", "unit": "°C", "color_class": "temp-entrada-value"},
-            "Saída": {"label": "T-Saída", "icon": "⬅️", "unit": "°C", "color_class": "temp-saida-value"},
-        }
+        # Definição das métricas a serem exibidas e suas unidades
+        metrics_to_display = [
+            ("Ambiente", "Ambiente", "°C", "🌡️"),
+            ("T-Entrada", "Entrada", "°C", "➡️"),
+            ("T-Saída", "Saída", "°C", "⬅️"),
+            ("ΔT", "ΔT", "°C", "↔️"),
+            ("Tensão", "Tensão", "V", "⚡"),
+            ("Corrente", "Corrente", "A", "🔌"),
+            ("Kcal/h", "Kcal/h", "Kcal/h", "🔥"),
+            ("Vazão", "Vazão", "L/h", "💧"),
+            ("Kw Aquecimento", "Kw Aquecimento", "kW", "♨️"),
+            ("Kw Consumo", "Kw Consumo", "kW", "💡"),
+            ("COP", "COP", "", "✅"),
+        ]
 
-        # Organiza as métricas em 2 colunas para melhor visualização em mobile
-        cols_metrics = st.columns(2)
-        col_idx = 0
+        # Organiza as métricas em 4 colunas para desktop, empilhando em mobile
+        cols_metrics = st.columns(4) 
 
-        for original_col_name in ["Ambiente", "Tensão", "Corrente", "Kcal/h", "Vazão", "Kw Aquecimento", "Kw Consumo", "COP", "ΔT", "Entrada", "Saída"]:
-            if original_col_name in ultima_linha:
-                valor = ultima_linha[original_col_name]
-                display_info = metric_display_info.get(original_col_name, {})
-                label = display_info.get("label", original_col_name)
-                icon = display_info.get("icon", "")
-                unit = display_info.get("unit", "")
-                color_class = display_info.get("color_class", "")
+        for i, (title, col_name, unit, icon) in enumerate(metrics_to_display):
+            with cols_metrics[i % 4]: # Usa o módulo para distribuir em 4 colunas
+                valor = ultima_linha.get(col_name, np.nan) # Pega o valor, default NaN se não existir
+                display_value = format_br_number(valor, unit=unit)
 
-                with cols_metrics[col_idx]:
-                    st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
-                    st.markdown(f'<h4>{icon} {label}</h4>', unsafe_allow_html=True)
-
-                    # Formata o valor usando a nova função
-                    formatted_value = format_br_number(valor, decimals=2, unit=unit)
-
-                    if color_class: # Se tiver classe de cor, usa markdown com span
-                        st.markdown(f'<span class="{color_class}">{formatted_value}</span>', unsafe_allow_html=True)
-                    else: # Caso contrário, usa st.markdown simples para o valor
-                        st.markdown(f'<span style="font-size: 1.5em; font-weight: bold; color: #333;">{formatted_value}</span>', unsafe_allow_html=True)
-
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                col_idx = (col_idx + 1) % 2 # Alterna entre as duas colunas
+                # Customiza a exibição para T-Entrada e T-Saída com cores e ícones específicos
+                if col_name == "Entrada":
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <h4>{title}</h4>
+                            <span class="temp-entrada-value">{icon} {display_value}</span>
+                        </div>
+                        """, unsafe_allow_html=True
+                    )
+                elif col_name == "Saída":
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <h4>{title}</h4>
+                            <span class="temp-saida-value">{icon} {display_value}</span>
+                        </div>
+                        """, unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(
+                        f"""
+                        <div class="metric-card">
+                            <h4>{title}</h4>
+                            <span class="metric-icon">{icon}</span> <span class="metric-value">{display_value}</span>
+                        </div>
+                        """, unsafe_allow_html=True
+                    )
     else:
-        st.warning("Não foi possível carregar os dados da última leitura do arquivo mais recente.")
+        st.warning("Não foi possível carregar os dados do arquivo mais recente para o painel de última leitura.")
 else:
-    st.info("Nenhum arquivo de histórico encontrado para exibir a última leitura.")
+    st.info("Nenhum arquivo CSV encontrado na pasta de dados para exibir a última leitura.")
 
 st.markdown("---") # Separador visual
 
@@ -361,69 +478,86 @@ st.markdown("---") # Separador visual
 st.title("Máquina de Teste Fromtherm")
 
 # =====================================================
-#  BARRA LATERAL: Filtros de Arquivos
+#  FILTROS DE ARQUIVOS (Sidebar)
 # =====================================================
-st.sidebar.header("Filtros de Arquivos")
+st.sidebar.markdown("<h3 style='color: #00bfff;'>Filtros de Arquivos:</h3>", unsafe_allow_html=True)
 
-# Inicializa selected_file_path se não existir
-if 'selected_file_path' not in st.session_state:
-    st.session_state.selected_file_path = None
-
-# Obtém todos os arquivos para popular os filtros
-all_files_for_filters = listar_arquivos_csv()
-
-# Extrai opções únicas para os filtros
-all_modelos = sorted(list(set(a["modelo"] for a in all_files_for_filters if a["modelo"] != "N/D")))
-all_operacoes = sorted(list(set(a["operacao"] for a in all_files_for_filters if a["operacao"] != "N/D")))
-all_anos = sorted(list(set(a["ano"] for a in all_files_for_filters if a["ano"] is not None)), reverse=True)
-all_meses = sorted(list(set(a["mes"] for a in all_files_for_filters if a["mes"] is not None)))
+# Coleta todas as opções de filtros
+all_modelos = sorted(list(set(a["modelo"] for a in arquivos_disponiveis if a["modelo"] != "N/D")))
+all_operacoes = sorted(list(set(a["operacao"] for a in arquivos_disponiveis if a["operacao"] != "N/D")))
+all_anos = sorted(list(set(a["ano"] for a in arquivos_disponiveis if a["ano"] is not None)), reverse=True)
+all_meses = sorted(list(set(a["mes"] for a in arquivos_disponiveis if a["mes"] is not None)))
 
 # Adiciona "Todos" como opção padrão
-modelos_opcoes = ["Todos"] + all_modelos
-operacoes_opcoes = ["Todos"] + all_operacoes
-anos_opcoes = ["Todos"] + [str(a) for a in all_anos]
-meses_opcoes = ["Todos"] + [f"{m:02d}" for m in all_meses] # Formata mês com 2 dígitos
+modelos_filtro_opcoes = ["Todos"] + all_modelos
+operacoes_filtro_opcoes = ["Todos"] + all_operacoes
+anos_filtro_opcoes = ["Todos"] + all_anos
+meses_filtro_opcoes = ["Todos"] + all_meses
 
-# Filtros na sidebar
-selected_modelo = st.sidebar.selectbox("Modelo (ex: FTI165HBR):", modelos_opcoes, key="filter_modelo")
+# Filtro: Modelo
+selected_modelo = st.sidebar.selectbox(
+    "Modelo (ex: FTI165HBR):",
+    modelos_filtro_opcoes,
+    key="modelo_filter"
+)
 
-# Filtra operações com base no modelo selecionado
-operacoes_filtradas_por_modelo = ["Todos"]
+# Filtro: N° Operação (dinâmico baseado no modelo)
+# Filtra as operações que correspondem ao modelo selecionado
 if selected_modelo != "Todos":
-    operacoes_filtradas_por_modelo = sorted(list(set(a["operacao"] for a in all_files_for_filters if a["modelo"] == selected_modelo and a["operacao"] != "N/D")))
-    operacoes_filtradas_por_modelo = ["Todos"] + operacoes_filtradas_por_modelo
+    operacoes_para_modelo = sorted(list(set(a["operacao"] for a in arquivos_disponiveis if a["modelo"] == selected_modelo and a["operacao"] != "N/D")))
+    operacoes_filtro_opcoes_dinamico = ["Todos"] + operacoes_para_modelo
+else:
+    operacoes_filtro_opcoes_dinamico = operacoes_filtro_opcoes
 
-selected_operacao = st.sidebar.selectbox("N° Operação (ex: OP987):", operacoes_filtradas_por_modelo, key="filter_operacao")
+selected_operacao = st.sidebar.selectbox(
+    "N° Operação (ex: OP987):",
+    operacoes_filtro_opcoes_dinamico,
+    key="operacao_filter"
+)
 
-selected_ano = st.sidebar.selectbox("Ano:", anos_opcoes, key="filter_ano")
-selected_mes = st.sidebar.selectbox("Mês:", meses_opcoes, key="filter_mes")
+# Filtro: Ano
+selected_ano = st.sidebar.selectbox(
+    "Ano:",
+    anos_filtro_opcoes,
+    key="ano_filter"
+)
 
-# Aplica os filtros aos arquivos
+# Filtro: Mês
+selected_mes = st.sidebar.selectbox(
+    "Mês:",
+    meses_filtro_opcoes,
+    format_func=lambda x: datetime(2000, x, 1).strftime("%B") if x != "Todos" else "Todos", # Mostra nome do mês
+    key="mes_filter"
+)
+
+# Aplica os filtros
 arquivos_filtrados = []
-for arquivo in all_files_info:
-    match_modelo = (selected_modelo == "Todos" or arquivo["modelo"] == selected_modelo)
-    match_operacao = (selected_operacao == "Todos" or arquivo["operacao"] == selected_operacao)
-    match_ano = (selected_ano == "Todos" or str(arquivo["ano"]) == selected_ano)
-    match_mes = (selected_mes == "Todos" or f"{arquivo['mes']:02d}" == selected_mes) if arquivo['mes'] is not None else (selected_mes == "Todos")
+for arquivo in arquivos_disponiveis:
+    match_modelo = (selected_modelo == "Todos") or (arquivo["modelo"] == selected_modelo)
+    match_operacao = (selected_operacao == "Todos") or (arquivo["operacao"] == selected_operacao)
+    match_ano = (selected_ano == "Todos") or (arquivo["ano"] == selected_ano)
+    match_mes = (selected_mes == "Todos") or (arquivo["mes"] == selected_mes)
 
     if match_modelo and match_operacao and match_ano and match_mes:
         arquivos_filtrados.append(arquivo)
 
 # =====================================================
-#  ÁREA PRINCIPAL: Arquivos Disponíveis (Botões)
+#  LISTA DE ARQUIVOS DISPONÍVEIS (Área Principal)
 # =====================================================
+st.markdown("---")
 st.subheader("Arquivos Disponíveis")
 
 if arquivos_filtrados:
-    # Cria colunas para os botões de arquivo
-    # O Streamlit já é responsivo, mas 3 colunas é um bom padrão para desktop
-    # Em mobile, o CSS @media (max-width: 768px) fará com que se empilhem
-    cols_buttons = st.columns(3) 
+    # Inicializa selected_file_path na session_state se não existir
+    if 'selected_file_path' not in st.session_state:
+        st.session_state.selected_file_path = None
 
+    # Exibe os botões de arquivo em colunas
+    cols_arquivos = st.columns(3) # 3 colunas para desktop, empilha em mobile
     for i, arquivo in enumerate(arquivos_filtrados):
-        with cols_buttons[i % 3]: # Distribui os botões entre as 3 colunas
+        with cols_arquivos[i % 3]: # Distribui os botões em 3 colunas
             display_name = arquivo['nome_arquivo'] # Exibe o nome original do arquivo
-            if st.button(display_name, key=f"file_button_{i}"):
+            if st.button(display_name, key=f"file_button_{arquivo['nome_arquivo']}"):
                 st.session_state.selected_file_path = arquivo['caminho']
                 st.rerun() # Força a atualização para mostrar o arquivo selecionado
 else:
@@ -526,6 +660,11 @@ if st.session_state.selected_file_path:
                     yaxis_title="Valor",
                     hovermode="x unified",
                     legend_title="Variáveis",
+                    plot_bgcolor='rgba(0,0,0,0.1)', # Fundo do gráfico escuro
+                    paper_bgcolor='rgba(0,0,0,0)', # Fundo do papel transparente
+                    font=dict(color='#e0e0e0'), # Cor da fonte do gráfico
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.1)'), # Cor da grade X
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.1)')  # Cor da grade Y
                 )
 
                 st.plotly_chart(fig, use_container_width=True)
