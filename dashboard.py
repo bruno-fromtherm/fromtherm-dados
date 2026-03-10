@@ -171,46 +171,41 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
         if len(df.columns) == len(expected_columns):
             df.columns = expected_columns
         else:
-            st.warning(f"O número de colunas no arquivo {os.path.basename(caminho)} ({len(df.columns)}) não corresponde ao esperado ({len(expected_columns)}). As colunas podem não estar corretas.")
-            # Tenta renomear as que batem e mantém as outras
+            st.warning(f"O número de colunas no arquivo {os.path.basename(caminho)} ({len(df.columns)}) não corresponde ao esperado ({len(expected_columns)}). As colunas podem estar incorretas.")
+            # Tenta renomear as que batem, ou deixa como está se for muito diferente
+            # Mapeia as colunas existentes para as esperadas
             new_columns = []
-            for i, col in enumerate(df.columns):
+            for i, col_name in enumerate(df.columns):
                 if i < len(expected_columns):
                     new_columns.append(expected_columns[i])
                 else:
-                    new_columns.append(col) # Mantém o nome original se não houver correspondência
+                    new_columns.append(col_name) # Mantém o nome original se não houver correspondência
             df.columns = new_columns
 
 
-        # Criar coluna DateTime combinando Date e Time
-        # Primeiro, garantir que Date e Time são strings
-        df['Date'] = df['Date'].astype(str)
-        df['Time'] = df['Time'].astype(str)
+        # Combinar 'Date' e 'Time' em uma única coluna de datetime
+        if 'Date' in df.columns and 'Time' in df.columns:
+            # Ajuste o formato da data para 'YYYY/MM/DD' conforme o CSV
+            # E o formato da hora para 'HH:MM:SS'
+            df['DateTime'] = pd.to_datetime(
+                df['Date'].astype(str) + ' ' + df['Time'].astype(str),
+                format='%Y/%m/%d %H:%M:%S', # Formato exato do seu CSV
+                errors='coerce'
+            )
+            # Remove as colunas originais de Date e Time se DateTime foi criada com sucesso
+            if not df['DateTime'].isnull().all():
+                df = df.drop(columns=['Date', 'Time'])
+                # Move 'DateTime' para a primeira coluna
+                df = df[['DateTime'] + [col for col in df.columns if col != 'DateTime']]
+            else:
+                st.warning("Não foi possível converter 'Date' e 'Time' para 'DateTime'. Verifique o formato.")
 
-        # Tentar converter para o formato datetime
-        # O formato do CSV é 'YYYY/MM/DD HH:MM:SS'
-        df['DateTime'] = pd.to_datetime(
-            df['Date'] + ' ' + df['Time'], 
-            format='%Y/%m/%d %H:%M:%S', 
-            errors='coerce'
-        )
-
-        # Se a conversão falhar para alguns, tentar um formato mais simples (apenas hora)
-        if df['DateTime'].isnull().any():
-            df['DateTime'] = pd.to_datetime(df['Time'], format='%H:%M:%S', errors='coerce')
-
-        # Mover 'DateTime' para a primeira coluna
-        if 'DateTime' in df.columns:
-            cols = ['DateTime'] + [col for col in df.columns if col != 'DateTime']
-            df = df[cols]
-
-        # Converter colunas numéricas para float, ignorando erros
+        # Tentar converter todas as colunas numéricas para float
         for col in df.columns:
-            if col not in ['Date', 'Time', 'DateTime']: # Não tentar converter colunas de data/hora
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+            if col not in ['DateTime']: # Não tenta converter a coluna de data/hora
+                df[col] = pd.to_numeric(df[col], errors='coerce') # 'coerce' transforma erros em NaN
 
         return df
-
     except Exception as e:
         st.error(f"Erro ao carregar o arquivo CSV '{os.path.basename(caminho)}': {e}")
         return pd.DataFrame() # Retorna um DataFrame vazio em caso de erro
@@ -224,79 +219,82 @@ if not todos_arquivos_info:
     st.info("Verifique se os arquivos .csv foram sincronizados corretamente para o GitHub.")
     st.stop()
 
-# =====================================================
-#  FILTROS NA BARRA LATERAL (com ordem e campos de busca)
-# =====================================================
-st.sidebar.subheader("Filtros de Arquivos")
-
-# 1. Filtro de Modelo (campo de texto)
-all_modelos = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
-selected_modelo_input = st.sidebar.text_input(
-    "Modelo (ex: FTA987BR):",
-    value="",
-    key="filter_modelo_input"
-).strip().upper() # Converte para maiúsculas para busca case-insensitive
-
-# Filtra os arquivos com base no input do modelo
-filtered_by_model = [
-    a for a in todos_arquivos_info
-    if selected_modelo_input == "" or (a["modelo"] and selected_modelo_input in a["modelo"].upper())
-]
-
-# 2. Filtro de N° Operação (campo de texto, dinâmico com o modelo)
-all_operacoes_for_model = sorted(list(set(a["operacao"] for a in filtered_by_model if a["operacao"] != "N/D")))
-selected_operacao_input = st.sidebar.text_input(
-    "N° Operação (ex: OP987):",
-    value="",
-    key="filter_operacao_input"
-).strip().upper() # Converte para maiúsculas para busca case-insensitive
-
-# Filtra os arquivos com base no input da operação
-filtered_by_op = [
-    a for a in filtered_by_model
-    if selected_operacao_input == "" or (a["operacao"] and selected_operacao_input in a["operacao"].upper())
-]
-
-# 3. Filtro de Ano (selectbox)
-all_anos = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"] is not None)), reverse=True)
-anos_filtro = ["Todos"] + [str(a) for a in all_anos]
-selected_ano = st.sidebar.selectbox(
-    "Ano:",
-    anos_filtro,
-    key="filter_ano"
-)
-
-# Filtra os arquivos com base no ano
-filtered_by_year = [
-    a for a in filtered_by_op
-    if selected_ano == "Todos" or (a["ano"] and str(a["ano"]) == selected_ano)
-]
-
-# 4. Filtro de Mês (selectbox)
+# Mapeamento de números de mês para nomes (para exibição)
 mes_label_map = {
     1: "01 - Janeiro", 2: "02 - Fevereiro", 3: "03 - Março", 4: "04 - Abril",
     5: "05 - Maio", 6: "06 - Junho", 7: "07 - Julho", 8: "08 - Agosto",
     9: "09 - Setembro", 10: "10 - Outubro", 11: "11 - Novembro", 12: "12 - Dezembro"
 }
-all_meses = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
-meses_filtro = ["Todos"] + [mes_label_map[m] for m in all_meses]
+
+# =====================================================
+#  SIDEBAR: Filtros de Arquivos
+# =====================================================
+st.sidebar.header("Filtros de Arquivos")
+
+# 1. Modelo
+all_modelos = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
+selected_modelo = st.sidebar.selectbox(
+    "Modelo (ex: FTI165HBR):",
+    ["Todos"] + all_modelos,
+    key="filter_modelo"
+)
+
+# Filtra arquivos com base no modelo selecionado
+arquivos_filtrados_por_modelo = [
+    a for a in todos_arquivos_info
+    if selected_modelo == "Todos" or a["modelo"] == selected_modelo
+]
+
+# 2. N° Operação (filtrado dinamicamente pelo modelo)
+all_operacoes_for_model = sorted(list(set(a["operacao"] for a in arquivos_filtrados_por_modelo if a["operacao"] != "N/D")))
+selected_operacao = st.sidebar.selectbox(
+    "N° Operação (ex: OP987):",
+    ["Todos"] + all_operacoes_for_model,
+    key="filter_operacao"
+)
+
+# Filtra arquivos com base no modelo E operação selecionados
+arquivos_filtrados_por_modelo_op = [
+    a for a in arquivos_filtrados_por_modelo
+    if selected_operacao == "Todos" or a["operacao"] == selected_operacao
+]
+
+# 3. Ano
+all_anos = sorted(list(set(a["ano"] for a in arquivos_filtrados_por_modelo_op if a["ano"] is not None)), reverse=True)
+selected_ano = st.sidebar.selectbox(
+    "Ano:",
+    ["Todos"] + all_anos,
+    key="filter_ano"
+)
+
+# Filtra arquivos com base no modelo, operação E ano selecionados
+arquivos_filtrados_por_modelo_op_ano = [
+    a for a in arquivos_filtrados_por_modelo_op
+    if selected_ano == "Todos" or a["ano"] == selected_ano
+]
+
+# 4. Mês
+all_meses = sorted(list(set(a["mes"] for a in arquivos_filtrados_por_modelo_op_ano if a["mes"] is not None)))
+meses_labels = ["Todos"] + [mes_label_map[m] for m in all_meses]
 selected_mes_label = st.sidebar.selectbox(
     "Mês:",
-    meses_filtro,
+    meses_labels,
     key="filter_mes"
 )
+
+# Converte o label do mês de volta para número
 selected_mes = None
 if selected_mes_label != "Todos":
     selected_mes = int(selected_mes_label.split(" ")[0])
 
-# Filtra os arquivos com base no mês
+# Aplica o filtro final de mês
 arquivos_filtrados = [
-    a for a in filtered_by_year
-    if selected_mes is None or (a["mes"] and a["mes"] == selected_mes)
+    a for a in arquivos_filtrados_por_modelo_op_ano
+    if selected_mes is None or a["mes"] == selected_mes
 ]
 
 # =====================================================
-#  ÁREA PRINCIPAL: Exibição dos Arquivos Disponíveis
+#  ÁREA PRINCIPAL: Lista de Arquivos Disponíveis
 # =====================================================
 st.markdown("---")
 st.subheader("Arquivos Disponíveis")
@@ -308,12 +306,11 @@ else:
     if 'selected_file_path' not in st.session_state:
         st.session_state.selected_file_path = None
 
-    # Exibe os botões em colunas
-    cols = st.columns(3) # 3 colunas para os botões
+    # Exibe os arquivos em colunas
+    cols = st.columns(3) # 3 botões por linha
     for i, arquivo in enumerate(arquivos_filtrados):
-        with cols[i % 3]: # Distribui os botões entre as 3 colunas
-            # Exibe o nome original do arquivo CSV no botão
-            display_name = arquivo['nome_arquivo']
+        with cols[i % 3]: # Distribui os botões nas colunas
+            display_name = arquivo['nome_arquivo'] # Exibe o nome original do CSV
 
             if st.button(display_name, key=f"file_button_{i}"):
                 st.session_state.selected_file_path = arquivo['caminho']
