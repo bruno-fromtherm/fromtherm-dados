@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import glob
 from datetime import datetime
-from io import BytesIO, StringIO # Importar StringIO
+from io import BytesIO, StringIO
 import plotly.express as px
 import re
 
@@ -137,6 +137,9 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
         for i, line in enumerate(lines):
             stripped_line = line.strip()
             if stripped_line.startswith('|') and stripped_line.endswith('|'):
+                # Ignora a linha de separação '---'
+                if '---' in stripped_line:
+                    continue
                 # Remove o primeiro e último '|', e divide pelo '|' restante
                 parts = [p.strip() for p in stripped_line[1:-1].split('|')]
                 # Filtra partes vazias que podem surgir de múltiplos delimitadores
@@ -144,7 +147,6 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
                 processed_lines.append(','.join(cleaned_parts))
             else:
                 # Se a linha não estiver no formato '| ... |', tenta adicionar como está
-                # Isso é um fallback, mas o ideal é que todas as linhas de dados sigam o padrão
                 processed_lines.append(stripped_line)
 
         # Converte a lista de linhas processadas em um objeto StringIO para o pandas ler
@@ -159,9 +161,9 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
         # Renomear colunas para o padrão esperado no dashboard
         # Certifique-se que esta lista de colunas corresponde EXATAMENTE ao seu CSV
         expected_columns = [
-            "Date", "Time", "ambiente", "entrada", "saida", "dif",
-            "tensao", "corrente", "kacl/h", "vazao", "kw aquecimento",
-            "kw consumo", "cop"
+            "Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT",
+            "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento",
+            "kW Consumo", "COP"
         ]
 
         # Verifica se o número de colunas corresponde antes de renomear
@@ -174,7 +176,7 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
 
         # Combinar 'Date' e 'Time' em uma única coluna de datetime
         if 'Date' in df.columns and 'Time' in df.columns:
-            # Ajuste o formato da data para 'YYYY/MM/DD HH:MM:SS' conforme o CSV
+            # Ajuste o formato da data para 'YYYY/MM/DD' conforme o CSV
             df['DateTime'] = pd.to_datetime(
                 df['Date'].astype(str) + ' ' + df['Time'].astype(str),
                 errors='coerce',
@@ -224,20 +226,31 @@ mes_label_map = {
     9: "09 Setembro", 10: "10 Outubro", 11: "11 Novembro", 12: "12 Dezembro"
 }
 
-# Coleta de opções para os filtros
-modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
-anos_disponiveis = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"])))
-meses_disponiveis = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None))) # Filtra None aqui
-operacoes_disponiveis = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"])))
+# --- Geração de opções para os filtros (agora com todas as possibilidades) ---
+# Em vez de pegar apenas os disponíveis nos arquivos, vamos listar todas as opções possíveis
+# para que os filtros sempre mostrem todas as opções.
+# Para isso, podemos definir listas estáticas ou gerar de um conjunto maior de dados se houver.
+# Por simplicidade, vou usar as opções encontradas nos arquivos, mas garantindo que 'Todos' esteja lá.
 
-# Adiciona "Todos" como opção para os filtros
-modelos_filtro = ["Todos"] + modelos_disponiveis
-anos_filtro = ["Todos"] + anos_disponiveis
-meses_filtro = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis]
-operacoes_filtro = ["Todos"] + operacoes_disponiveis
+# Opções de filtro para Modelo (ex: OP987, FTA987BR)
+all_modelos = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
+modelos_filtro = ["Todos"] + all_modelos
 
-# Filtros na sidebar
-st.sidebar.header("Filtros de Arquivos") # Título do filtro
+# Opções de filtro para Ano
+all_anos = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"])))
+anos_filtro = ["Todos"] + all_anos
+
+# Opções de filtro para Mês
+all_meses = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
+meses_filtro = ["Todos"] + [mes_label_map[m] for m in all_meses]
+
+# Opções de filtro para Operação (ex: OP987_FTA987BR)
+all_operacoes = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"])))
+operacoes_filtro = ["Todos"] + all_operacoes
+
+
+# --- Filtros na sidebar ---
+st.sidebar.header("Filtros de Arquivos")
 selected_modelo = st.sidebar.selectbox("Modelo (ex: FTA987BR):", modelos_filtro)
 selected_ano = st.sidebar.selectbox("Ano:", anos_filtro)
 selected_mes_label = st.sidebar.selectbox("Mês:", meses_filtro)
@@ -257,25 +270,32 @@ arquivos_filtrados = [
        (selected_operacao == "Todos" or a["operacao"] == selected_operacao)
 ]
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Arquivos Disponíveis")
+# =====================================================
+#  ÁREA PRINCIPAL: Listagem de Arquivos Disponíveis
+# =====================================================
+st.markdown("---") # Linha divisória para separar do título principal
+st.subheader("Arquivos Disponíveis")
 
 if not arquivos_filtrados:
-    st.sidebar.info("Nenhum arquivo encontrado com os filtros selecionados.")
+    st.info("Nenhum arquivo encontrado com os filtros selecionados.")
 else:
     # Armazena o arquivo selecionado na session_state
     if 'selected_file_path' not in st.session_state:
         st.session_state.selected_file_path = None
 
-    for i, arquivo in enumerate(arquivos_filtrados):
-        # Tratamento para 'data' e 'hora' que podem ser None
-        data_str = arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else "N/D"
-        hora_str = arquivo['hora'] if arquivo['hora'] else "N/D"
-        display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {data_str} {hora_str}"
+    # Cria colunas para os botões para melhor organização visual
+    cols_per_row = 3 # Quantos botões por linha
+    cols = st.columns(cols_per_row)
 
-        if st.sidebar.button(display_name, key=f"file_button_{i}"):
-            st.session_state.selected_file_path = arquivo['caminho']
-            st.rerun() # Força a atualização para mostrar o arquivo selecionado
+    for i, arquivo in enumerate(arquivos_filtrados):
+        with cols[i % cols_per_row]: # Distribui os botões nas colunas
+            data_str = arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else "N/D"
+            hora_str = arquivo['hora'] if arquivo['hora'] else "N/D"
+            display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {data_str} {hora_str}"
+
+            if st.button(display_name, key=f"file_button_{i}", use_container_width=True):
+                st.session_state.selected_file_path = arquivo['caminho']
+                st.rerun() # Força a atualização para mostrar o arquivo selecionado
 
 # =====================================================
 #  ÁREA PRINCIPAL: Exibição do arquivo selecionado
@@ -285,13 +305,115 @@ if st.session_state.selected_file_path:
     selected_file_path = st.session_state.selected_file_path
     selected_filename = os.path.basename(selected_file_path)
 
-    st.subheader(f"Dados do Arquivo: {selected_filename}")
+    st.markdown("---") # Linha divisória
+    st.subheader(f"Visualização de Dados: {selected_filename}")
 
     df_dados = carregar_csv_caminho(selected_file_path)
 
     if not df_dados.empty:
         st.dataframe(df_dados, use_container_width=True)
+
+        # Botão de download do Excel para o arquivo selecionado
+        output_excel = BytesIO()
+        with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
+            df_dados.to_excel(writer, index=False, sheet_name='Dados')
+
+            # Ajusta a largura das colunas no Excel
+            workbook = writer.book
+            worksheet = writer.sheets['Dados']
+            for col_idx, col_name in enumerate(df_dados.columns):
+                if "kW" in col_name:
+                    worksheet.set_column(col_idx, col_idx, 15)
+                elif "Ambiente" in col_name or "Corrente" in col_name:
+                    worksheet.set_column(col_idx, col_idx, 10)
+                elif "Date" in col_name or "DateTime" in col_name:
+                    worksheet.set_column(col_idx, col_idx, 18) # Mais largo para DateTime
+                elif "Time" in col_name:
+                    worksheet.set_column(col_idx, col_idx, 10)
+                else:
+                    worksheet.set_column(col_idx, col_idx, 12)
+
+        output_excel.seek(0)
+
+        # Gera o nome do arquivo para download
+        parsed_info = next((a for a in todos_arquivos_info if a['caminho'] == selected_file_path), None)
+        data_nome = parsed_info['data'].strftime('%Y%m%d') if parsed_info and parsed_info['data'] else 'N_D'
+        hora_nome = parsed_info['hora'].replace(':', '') if parsed_info and parsed_info['hora'] else 'N_D'
+        modelo_nome = parsed_info['modelo'] if parsed_info and parsed_info['modelo'] else 'N_D'
+        operacao_nome = parsed_info['operacao'] if parsed_info and parsed_info['operacao'] else 'OP'
+
+        st.download_button(
+            label="Exportar para Excel",
+            data=output_excel,
+            file_name=(
+                f"Maquina_{modelo_nome}_"
+                f"{operacao_nome}_"
+                f"{data_nome}_{hora_nome}.xlsx"
+            ),
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"excel_download_{selected_filename}",
+        )
+
+        # --- Seção de Gráficos (reintroduzida aqui, mas pode ser movida para uma aba se preferir) ---
+        st.markdown("---")
+        st.subheader("Crie Seu Gráfico")
+
+        # Usar o DataFrame do arquivo selecionado para gerar o gráfico
+        df_graf = df_dados.copy()
+
+        if not df_graf.empty and 'DateTime' in df_graf.columns:
+            st.markdown("### Variáveis para o gráfico")
+
+            # Usar os nomes de colunas do DataFrame carregado, exceto 'DateTime'
+            variaveis_opcoes = [col for col in df_graf.columns if col != 'DateTime']
+
+            vars_selecionadas = st.multiselect(
+                "Selecione uma ou mais variáveis:",
+                variaveis_opcoes,
+                default=["Ambiente", "Entrada", "Saída"] if all(v in variaveis_opcoes for v in ["Ambiente", "Entrada", "Saída"]) else variaveis_opcoes[:3],
+                key=f"graf_vars_{selected_filename}"
+            )
+
+            if not vars_selecionadas:
+                st.info("Selecione pelo menos uma variável para gerar o gráfico.")
+            else:
+                df_plot = df_graf[["DateTime"] + vars_selecionadas].copy()
+                df_melted = df_plot.melt(
+                    id_vars="DateTime",
+                    value_vars=vars_selecionadas,
+                    var_name="Variável",
+                    value_name="Valor",
+                )
+
+                fig = px.line(
+                    df_melted,
+                    x="DateTime",
+                    y="Valor",
+                    color="Variável",
+                    title=f"Gráfico - {selected_filename}",
+                    markers=True,
+                )
+
+                fig.update_yaxes(rangemode="tozero")
+
+                fig.update_layout(
+                    xaxis_title="Tempo",
+                    yaxis_title="Valor",
+                    hovermode="x unified",
+                    legend_title="Variáveis",
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+                st.markdown(
+                    "- Use o botão de **fullscreen** no gráfico para expandir.\n"
+                    "- Use o ícone de **câmera** no gráfico para baixar como imagem (PNG).\n"
+                    "- A imagem baixada pode ser compartilhada via WhatsApp, e-mail, etc., em qualquer dispositivo."
+                )
+        else:
+            st.warning("Não há dados válidos ou coluna 'DateTime' para gerar o gráfico.")
+
     else:
         st.warning("Não foi possível carregar ou processar os dados do arquivo selecionado. Verifique o formato do CSV.")
 else:
-    st.info("Por favor, selecione um arquivo no menu lateral para começar.")
+    st.info("Por favor, selecione um arquivo na lista acima para visualizar os dados e gerar gráficos.")
