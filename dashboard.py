@@ -171,34 +171,48 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
         if len(df.columns) == len(expected_columns):
             df.columns = expected_columns
         else:
-            st.warning(f"O número de colunas no arquivo {os.path.basename(caminho)} ({len(df.columns)}) não corresponde ao esperado ({len(expected_columns)}). As colunas podem estar incorretas.")
-            # Tenta renomear as que batem, ou deixa como está se for muito diferente
-            # Ou você pode adicionar uma lógica mais robusta aqui.
+            st.warning(f"O número de colunas no arquivo {os.path.basename(caminho)} ({len(df.columns)}) não corresponde ao esperado ({len(expected_columns)}). As colunas podem não estar corretas.")
+            # Tenta renomear as que batem e mantém as outras
+            new_columns = []
+            for i, col in enumerate(df.columns):
+                if i < len(expected_columns):
+                    new_columns.append(expected_columns[i])
+                else:
+                    new_columns.append(col) # Mantém o nome original se não houver correspondência
+            df.columns = new_columns
 
-        # Combinar 'Date' e 'Time' em uma única coluna de datetime
-        if 'Date' in df.columns and 'Time' in df.columns:
-            # Ajuste o formato da data para 'YYYY/MM/DD' conforme o CSV
-            df['DateTime'] = pd.to_datetime(
-                df['Date'].astype(str) + ' ' + df['Time'].astype(str),
-                errors='coerce',
-                format='%Y/%m/%d %H:%M:%S' # Formato exato do seu CSV
-            )
-            df = df.drop(columns=['Date', 'Time']) # Remove as colunas originais
-            # Mover 'DateTime' para o início do DataFrame
+
+        # Criar coluna DateTime combinando Date e Time
+        # Primeiro, garantir que Date e Time são strings
+        df['Date'] = df['Date'].astype(str)
+        df['Time'] = df['Time'].astype(str)
+
+        # Tentar converter para o formato datetime
+        # O formato do CSV é 'YYYY/MM/DD HH:MM:SS'
+        df['DateTime'] = pd.to_datetime(
+            df['Date'] + ' ' + df['Time'], 
+            format='%Y/%m/%d %H:%M:%S', 
+            errors='coerce'
+        )
+
+        # Se a conversão falhar para alguns, tentar um formato mais simples (apenas hora)
+        if df['DateTime'].isnull().any():
+            df['DateTime'] = pd.to_datetime(df['Time'], format='%H:%M:%S', errors='coerce')
+
+        # Mover 'DateTime' para a primeira coluna
+        if 'DateTime' in df.columns:
             cols = ['DateTime'] + [col for col in df.columns if col != 'DateTime']
             df = df[cols]
 
-        # Converter colunas numéricas (exceto DateTime)
+        # Converter colunas numéricas para float, ignorando erros
         for col in df.columns:
-            if col != 'DateTime': # Não tenta converter a coluna de data/hora
-                try:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                except ValueError:
-                    pass # Se não for numérico, mantém o tipo original
+            if col not in ['Date', 'Time', 'DateTime']: # Não tentar converter colunas de data/hora
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
         return df
+
     except Exception as e:
-        st.error(f"Erro ao carregar ou processar o arquivo {caminho}: {e}")
+        st.error(f"Erro ao carregar o arquivo CSV '{os.path.basename(caminho)}': {e}")
         return pd.DataFrame() # Retorna um DataFrame vazio em caso de erro
 
 
@@ -210,60 +224,81 @@ if not todos_arquivos_info:
     st.info("Verifique se os arquivos .csv foram sincronizados corretamente para o GitHub.")
     st.stop()
 
-# --- Determinar o arquivo mais recente (por data + hora) ---
-# Garante que 'data' e 'hora' não sejam None para a comparação
-arquivo_mais_recente = max(
-    todos_arquivos_info,
-    key=lambda x: (
-        x["data"] if x["data"] else datetime.min.date(),
-        x["hora"] or "",
-    ),
+# =====================================================
+#  FILTROS NA BARRA LATERAL (com ordem e campos de busca)
+# =====================================================
+st.sidebar.subheader("Filtros de Arquivos")
+
+# 1. Filtro de Modelo (campo de texto)
+all_modelos = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
+selected_modelo_input = st.sidebar.text_input(
+    "Modelo (ex: FTA987BR):",
+    value="",
+    key="filter_modelo_input"
+).strip().upper() # Converte para maiúsculas para busca case-insensitive
+
+# Filtra os arquivos com base no input do modelo
+filtered_by_model = [
+    a for a in todos_arquivos_info
+    if selected_modelo_input == "" or (a["modelo"] and selected_modelo_input in a["modelo"].upper())
+]
+
+# 2. Filtro de N° Operação (campo de texto, dinâmico com o modelo)
+all_operacoes_for_model = sorted(list(set(a["operacao"] for a in filtered_by_model if a["operacao"] != "N/D")))
+selected_operacao_input = st.sidebar.text_input(
+    "N° Operação (ex: OP987):",
+    value="",
+    key="filter_operacao_input"
+).strip().upper() # Converte para maiúsculas para busca case-insensitive
+
+# Filtra os arquivos com base no input da operação
+filtered_by_op = [
+    a for a in filtered_by_model
+    if selected_operacao_input == "" or (a["operacao"] and selected_operacao_input in a["operacao"].upper())
+]
+
+# 3. Filtro de Ano (selectbox)
+all_anos = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"] is not None)), reverse=True)
+anos_filtro = ["Todos"] + [str(a) for a in all_anos]
+selected_ano = st.sidebar.selectbox(
+    "Ano:",
+    anos_filtro,
+    key="filter_ano"
 )
 
-# Mapeamento de números de mês para nomes (para exibição nos filtros)
+# Filtra os arquivos com base no ano
+filtered_by_year = [
+    a for a in filtered_by_op
+    if selected_ano == "Todos" or (a["ano"] and str(a["ano"]) == selected_ano)
+]
+
+# 4. Filtro de Mês (selectbox)
 mes_label_map = {
-    1: "01 Janeiro", 2: "02 Fevereiro", 3: "03 Março", 4: "04 Abril",
-    5: "05 Maio", 6: "06 Junho", 7: "07 Julho", 8: "08 Agosto",
-    9: "09 Setembro", 10: "10 Outubro", 11: "11 Novembro", 12: "12 Dezembro"
+    1: "01 - Janeiro", 2: "02 - Fevereiro", 3: "03 - Março", 4: "04 - Abril",
+    5: "05 - Maio", 6: "06 - Junho", 7: "07 - Julho", 8: "08 - Agosto",
+    9: "09 - Setembro", 10: "10 - Outubro", 11: "11 - Novembro", 12: "12 - Dezembro"
 }
-
-# Coleta de opções para os filtros (a partir de todos os arquivos)
-modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] and a["modelo"] != "N/D")))
-anos_disponiveis = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"] is not None)))
-meses_disponiveis = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
-operacoes_disponiveis = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"] and a["operacao"] != "N/D")))
-
-# Adiciona "Todos" como opção para os filtros
-modelos_filtro = ["Todos"] + modelos_disponiveis
-anos_filtro = ["Todos"] + anos_disponiveis
-meses_filtro = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis]
-operacoes_filtro = ["Todos"] + operacoes_disponiveis
-
-# Filtros na sidebar
-st.sidebar.header("Filtros de Arquivos") # Título do filtro
-selected_modelo = st.sidebar.selectbox("Modelo (ex: FTA987BR):", modelos_filtro)
-selected_ano = st.sidebar.selectbox("Ano:", anos_filtro)
-selected_mes_label = st.sidebar.selectbox("Mês:", meses_filtro)
-selected_operacao = st.sidebar.selectbox("Operação (ex: OP987_FTA987BR):", operacoes_filtro)
-
-# Converte o label do mês de volta para número
+all_meses = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
+meses_filtro = ["Todos"] + [mes_label_map[m] for m in all_meses]
+selected_mes_label = st.sidebar.selectbox(
+    "Mês:",
+    meses_filtro,
+    key="filter_mes"
+)
 selected_mes = None
 if selected_mes_label != "Todos":
     selected_mes = int(selected_mes_label.split(" ")[0])
 
-# Aplica os filtros
+# Filtra os arquivos com base no mês
 arquivos_filtrados = [
-    a for a in todos_arquivos_info
-    if (selected_modelo == "Todos" or a["modelo"] == selected_modelo) and
-       (selected_ano == "Todos" or a["ano"] == selected_ano) and
-       (selected_mes is None or a["mes"] == selected_mes) and
-       (selected_operacao == "Todos" or a["operacao"] == selected_operacao)
+    a for a in filtered_by_year
+    if selected_mes is None or (a["mes"] and a["mes"] == selected_mes)
 ]
 
 # =====================================================
-#  ÁREA PRINCIPAL: Lista de Arquivos Disponíveis
+#  ÁREA PRINCIPAL: Exibição dos Arquivos Disponíveis
 # =====================================================
-st.markdown("---") # Linha divisória
+st.markdown("---")
 st.subheader("Arquivos Disponíveis")
 
 if not arquivos_filtrados:
@@ -273,50 +308,42 @@ else:
     if 'selected_file_path' not in st.session_state:
         st.session_state.selected_file_path = None
 
-    # Cria colunas para os botões para melhor organização visual
-    cols_per_row = 3 # Quantos botões por linha
-    cols = st.columns(cols_per_row)
-
+    # Exibe os botões em colunas
+    cols = st.columns(3) # 3 colunas para os botões
     for i, arquivo in enumerate(arquivos_filtrados):
-        with cols[i % cols_per_row]: # Distribui os botões nas colunas
-            # Aqui está a mudança CRÍTICA:
-            # Se as informações foram extraídas, usa-as. Caso contrário, usa o nome original do arquivo.
-            if arquivo['modelo'] != "N/D" and arquivo['operacao'] != "N/D" and arquivo['data'] and arquivo['hora']:
-                data_str = arquivo['data'].strftime('%d/%m/%Y')
-                hora_str = arquivo['hora']
-                display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {data_str} {hora_str}"
-            else:
-                # Se alguma informação estiver faltando, mostra o nome completo do arquivo
-                display_name = arquivo['nome_arquivo']
+        with cols[i % 3]: # Distribui os botões entre as 3 colunas
+            # Exibe o nome original do arquivo CSV no botão
+            display_name = arquivo['nome_arquivo']
 
-            if st.button(display_name, key=f"file_button_{i}", use_container_width=True):
+            if st.button(display_name, key=f"file_button_{i}"):
                 st.session_state.selected_file_path = arquivo['caminho']
                 st.rerun() # Força a atualização para mostrar o arquivo selecionado
 
 # =====================================================
-#  ÁREA PRINCIPAL: Exibição do arquivo selecionado
+#  ÁREA PRINCIPAL: Exibição do arquivo selecionado (Tabela e Gráfico)
 # =====================================================
 
 if st.session_state.selected_file_path:
     selected_file_path = st.session_state.selected_file_path
     selected_filename = os.path.basename(selected_file_path)
 
-    st.markdown("---") # Linha divisória
-    st.subheader(f"Visualização de Dados: {selected_filename}")
+    st.markdown("---")
+    st.subheader(f"Visualizando: {selected_filename}")
 
     df_dados = carregar_csv_caminho(selected_file_path)
 
     if not df_dados.empty:
+        st.write("### Tabela de Dados")
         st.dataframe(df_dados, use_container_width=True)
 
-        # Botão de download do Excel para o arquivo selecionado
+        # Botão de download para Excel
         output_excel = BytesIO()
         with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
             df_dados.to_excel(writer, index=False, sheet_name='Dados')
-
-            # Ajusta a largura das colunas no Excel
             workbook = writer.book
             worksheet = writer.sheets['Dados']
+
+            # Ajusta a largura das colunas no Excel
             for col_idx, col_name in enumerate(df_dados.columns):
                 if "kW" in col_name:
                     worksheet.set_column(col_idx, col_idx, 15)
@@ -331,18 +358,8 @@ if st.session_state.selected_file_path:
 
         output_excel.seek(0)
 
-        # Gera o nome do arquivo para download
-        parsed_info = next((a for a in todos_arquivos_info if a['caminho'] == selected_file_path), None)
-
-        # Usa o nome original do arquivo se as informações parseadas não estiverem completas
-        if parsed_info and parsed_info['modelo'] != "N/D" and parsed_info['operacao'] != "N/D" and parsed_info['data'] and parsed_info['hora']:
-            data_nome = parsed_info['data'].strftime('%Y%m%d')
-            hora_nome = parsed_info['hora'].replace(':', '')
-            modelo_nome = parsed_info['modelo']
-            operacao_nome = parsed_info['operacao']
-            excel_file_name = f"Maquina_{modelo_nome}_{operacao_nome}_{data_nome}_{hora_nome}.xlsx"
-        else:
-            excel_file_name = selected_filename.replace('.csv', '.xlsx') # Usa o nome original do CSV, mas com extensão .xlsx
+        # Gera o nome do arquivo para download (usa o nome original do CSV, mas com extensão .xlsx)
+        excel_file_name = selected_filename.replace('.csv', '.xlsx')
 
         st.download_button(
             label="Exportar para Excel",
@@ -352,7 +369,7 @@ if st.session_state.selected_file_path:
             key=f"excel_download_{selected_filename}",
         )
 
-        # --- Seção de Gráficos (reintroduzida aqui, mas pode ser movida para uma aba se preferir) ---
+        # --- Seção de Gráficos ---
         st.markdown("---")
         st.subheader("Crie Seu Gráfico")
 
