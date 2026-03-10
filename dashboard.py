@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import os
@@ -86,22 +85,26 @@ except Exception as e:
 # Criar um DataFrame com as informações dos arquivos para facilitar a filtragem
 files_df = pd.DataFrame(all_files_info)
 
-# --- Sidebar para Filtros e Seleção de Arquivos ---
-st.sidebar.header("Filtros de Arquivos CSV")
+# --- Sidebar para Filtros ---
+st.sidebar.header("Filtros de Arquivos") # Título alterado
+
+# Variável de estado para armazenar o arquivo selecionado para visualização
+if 'selected_file_for_display' not in st.session_state:
+    st.session_state.selected_file_for_display = None
 
 if not files_df.empty:
     # Filtros dinâmicos
     modelos_unicos = sorted(files_df['modelo'].unique())
-    maquinas_unicas = sorted(files_df['maquina'].unique()) # Novo filtro para máquina
+    maquinas_unicas = sorted(files_df['maquina'].unique())
     anos_unicos = sorted(files_df['ano'].unique(), reverse=True)
     meses_unicos = sorted(files_df['mes'].unique())
     dias_unicos = sorted(files_df['dia'].unique())
 
-    selected_modelo = st.sidebar.selectbox("Filtrar por Modelo:", ["Todos"] + modelos_unicos)
-    selected_maquina = st.sidebar.selectbox("Filtrar por Máquina:", ["Todos"] + maquinas_unicas) # Novo seletor
-    selected_ano = st.sidebar.selectbox("Filtrar por Ano:", ["Todos"] + anos_unicos)
-    selected_mes = st.sidebar.selectbox("Filtrar por Mês:", ["Todos"] + meses_unicos)
-    selected_dia = st.sidebar.selectbox("Filtrar por Dia:", ["Todos"] + dias_unicos)
+    selected_modelo = st.sidebar.selectbox("Modelo (ex: OP987):", ["Todos"] + modelos_unicos)
+    selected_maquina = st.sidebar.selectbox("Máquina (ex: FTA987BR):", ["Todos"] + maquinas_unicas)
+    selected_ano = st.sidebar.selectbox("Ano:", ["Todos"] + anos_unicos)
+    selected_mes = st.sidebar.selectbox("Mês:", ["Todos"] + meses_unicos)
+    selected_dia = st.sidebar.selectbox("Dia:", ["Todos"] + dias_unicos)
 
     # Aplicar filtros
     filtered_files_df = files_df.copy()
@@ -116,21 +119,24 @@ if not files_df.empty:
     if selected_dia != "Todos":
         filtered_files_df = filtered_files_df[filtered_files_df['dia'] == selected_dia]
 
-    # Seletor final de arquivo após filtros
+    # Exibir arquivos filtrados para seleção
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Arquivos Disponíveis")
+
     if not filtered_files_df.empty:
-        selected_filename = st.sidebar.selectbox(
-            "Selecione um arquivo CSV para visualizar:",
-            filtered_files_df['filename'].tolist(),
-            format_func=lambda x: f"{parse_filename(x)['data_completa']} - {parse_filename(x)['modelo']} - {parse_filename(x)['maquina']}"
-        )
+        for index, row in filtered_files_df.iterrows():
+            display_text = f"{row['data_completa']} - {row['modelo']} - {row['maquina']}"
+            if st.sidebar.button(display_text, key=row['filename']):
+                st.session_state.selected_file_for_display = row['filename']
+                st.experimental_rerun() # Força a atualização para mostrar o arquivo selecionado
     else:
         st.sidebar.info("Nenhum arquivo encontrado com os filtros selecionados.")
-        selected_filename = None
 else:
     st.sidebar.info("Nenhum arquivo CSV encontrado na pasta especificada.")
-    selected_filename = None
 
 # --- Conteúdo Principal do Dashboard ---
+selected_filename = st.session_state.selected_file_for_display
+
 if selected_filename:
     file_path = os.path.join(DATA_PATH, selected_filename)
     df = load_data(file_path)
@@ -152,15 +158,12 @@ if selected_filename:
             parsed_info = parse_filename(selected_filename)
             if parsed_info:
                 # Formato: Maquina_FTA987BR_OP987_08/03/2026_09:39hs
-                download_base_name = f"Maquina_{parsed_info['maquina']}_{parsed_info['modelo']}_{parsed_info['data_completa'].replace('/', '')}_{parsed_info['hora']}"
                 display_name = f"Maquina_{parsed_info['maquina']}_{parsed_info['modelo']}_{parsed_info['data_completa']}_{parsed_info['hora']}hs"
             else:
-                download_base_name = "dados_fromtherm"
                 display_name = "Dados Fromtherm"
 
             # Download Excel
             excel_buffer = BytesIO()
-            # Removido 'engine=xlsxwriter' para usar o padrão do openpyxl, que já está no requirements.txt
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Dados')
             excel_buffer.seek(0)
@@ -175,11 +178,9 @@ if selected_filename:
             st.write("### Crie Seu Gráfico")
 
             # Identificar colunas de data/hora e numéricas
-            # A coluna 'Timestamp' agora é a principal de data/hora
             datetime_cols = ['timestamp'] if 'timestamp' in df.columns else []
             numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-            # Remover 'timestamp' das colunas numéricas se ela for numérica (o que não deve acontecer após to_datetime)
-            if 'timestamp' in numeric_cols:
+            if 'timestamp' in numeric_cols: # Garante que timestamp não seja opção para eixo Y
                 numeric_cols.remove('timestamp')
 
             if not datetime_cols:
@@ -195,7 +196,6 @@ if selected_filename:
                 # Seletores para o gráfico
                 st.write("Selecione as opções para o seu gráfico:")
 
-                # Selecionar Modelo e Operação (já filtrados pelo sidebar, mas podemos exibir aqui)
                 st.info(f"Modelo Selecionado: **{parsed_info['modelo']}** | Máquina Selecionada: **{parsed_info['maquina']}**")
 
                 col_x, col_y = st.columns(2)
@@ -212,11 +212,9 @@ if selected_filename:
                     st.write("---")
                     st.write("### Gráfico Gerado")
 
-                    # Cria o gráfico de linha interativo com Plotly
                     fig = px.line(df, x=x_axis, y=y_axes, title=f"Dados de {selected_filename}")
-                    fig.update_layout(hovermode="x unified") # Melhora a interatividade ao passar o mouse
+                    fig.update_layout(hovermode="x unified")
 
-                    # Exibe o gráfico
                     st.plotly_chart(fig, use_container_width=True)
 
                     st.info("O gráfico acima já possui funcionalidades de zoom, pan e download de imagem (câmera no canto superior direito) nativas do Plotly.")
@@ -225,4 +223,4 @@ if selected_filename:
     else:
         st.warning("Não foi possível carregar ou processar os dados do arquivo selecionado. Verifique o formato do CSV.")
 else:
-    st.info("Por favor, selecione um arquivo CSV no menu lateral para começar.")
+    st.info("Por favor, selecione um arquivo no menu lateral para começar.")
