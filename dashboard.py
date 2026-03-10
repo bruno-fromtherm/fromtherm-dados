@@ -3,7 +3,9 @@ import pandas as pd
 import os
 import glob
 from datetime import datetime
-import re # Importar re para expressões regulares
+from io import BytesIO, StringIO # Importar StringIO
+import plotly.express as px
+import re
 
 # --- Configuração básica da página ---
 st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
@@ -99,8 +101,10 @@ def listar_arquivos_csv():
                 mes = int(month_str)
                 hora = f"{time_str[:2]}:{time_str[2:]}"
             except ValueError:
+                # Se a conversão de data/hora falhar, define como None
                 data, ano, mes, hora = None, None, None, None
         else:
+            # Se o nome do arquivo não corresponder ao padrão, define como N/D ou None
             data, ano, mes, hora, operacao, modelo = None, None, None, None, "N/D", "N/D"
 
         info_arquivos.append(
@@ -124,9 +128,33 @@ def listar_arquivos_csv():
 @st.cache_data(ttl=600) # Cache por 10 minutos
 def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
     try:
-        # **Ajuste CRÍTICO AQUI:** Usando 'delim_whitespace=True' para múltiplos espaços
-        # e 'decimal='.' para o separador decimal.
-        df = pd.read_csv(caminho, delim_whitespace=True, decimal='.', encoding='utf-8')
+        # Lendo o arquivo como texto para pré-processamento
+        with open(caminho, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        # Filtrar a linha '---' e remover espaços extras e o caractere '|'
+        processed_lines = []
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            if stripped_line.startswith('|') and stripped_line.endswith('|'):
+                # Remove o primeiro e último '|', e divide pelo '|' restante
+                parts = [p.strip() for p in stripped_line[1:-1].split('|')]
+                # Filtra partes vazias que podem surgir de múltiplos delimitadores
+                cleaned_parts = [p for p in parts if p]
+                processed_lines.append(','.join(cleaned_parts))
+            else:
+                # Se a linha não estiver no formato '| ... |', tenta adicionar como está
+                # Isso é um fallback, mas o ideal é que todas as linhas de dados sigam o padrão
+                processed_lines.append(stripped_line)
+
+        # Converte a lista de linhas processadas em um objeto StringIO para o pandas ler
+        data_io = StringIO('\n'.join(processed_lines))
+
+        # Agora, o pandas pode ler com vírgula como separador
+        df = pd.read_csv(data_io, sep=',', decimal='.', encoding='utf-8')
+
+        # Limpeza de espaços nos nomes das colunas lidas
+        df.columns = [col.strip() for col in df.columns]
 
         # Renomear colunas para o padrão esperado no dashboard
         # Certifique-se que esta lista de colunas corresponde EXATAMENTE ao seu CSV
@@ -136,25 +164,13 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
             "kw consumo", "cop"
         ]
 
-        # Renomeia as colunas do DataFrame para os nomes esperados
-        # Primeiro, limpa os nomes das colunas lidas para remover espaços extras
-        df.columns = [col.strip() for col in df.columns]
-
         # Verifica se o número de colunas corresponde antes de renomear
         if len(df.columns) == len(expected_columns):
             df.columns = expected_columns
         else:
             st.warning(f"O número de colunas no arquivo {os.path.basename(caminho)} ({len(df.columns)}) não corresponde ao esperado ({len(expected_columns)}). As colunas podem estar incorretas.")
-            st.info(f"Colunas lidas: {df.columns.tolist()}")
-            st.info(f"Colunas esperadas: {expected_columns}")
-            # Se não corresponder, podemos tentar mapear as que batem ou deixar como está
-            # Por enquanto, vamos prosseguir e ver o que acontece.
-
-        # Limpeza e conversão de tipos para numérico
-        for col in df.columns:
-            # Tentar converter para numérico (float)
-            # 'errors='coerce'' transformará valores não numéricos em NaN
-            df[col] = pd.to_numeric(df[col], errors='coerce')
+            # Tenta renomear as que batem, ou deixa como está se for muito diferente
+            # Ou você pode adicionar uma lógica mais robusta aqui.
 
         # Combinar 'Date' e 'Time' em uma única coluna de datetime
         if 'Date' in df.columns and 'Time' in df.columns:
@@ -168,6 +184,14 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
             # Mover 'DateTime' para o início do DataFrame
             cols = ['DateTime'] + [col for col in df.columns if col != 'DateTime']
             df = df[cols]
+
+        # Converter colunas numéricas (exceto DateTime)
+        for col in df.columns:
+            if col != 'DateTime': # Não tenta converter a coluna de data/hora
+                try:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                except ValueError:
+                    pass # Se não for numérico, mantém o tipo original
 
         return df
     except Exception as e:
@@ -183,10 +207,17 @@ if not todos_arquivos_info:
     st.info("Verifique se os arquivos .csv foram sincronizados corretamente para o GitHub.")
     st.stop()
 
-# --- Sidebar para filtros ---
-st.sidebar.header("Filtros de Arquivos")
+# --- Determinar o arquivo mais recente (por data + hora) ---
+# Garante que 'data' e 'hora' não sejam None para a comparação
+arquivo_mais_recente = max(
+    todos_arquivos_info,
+    key=lambda x: (
+        x["data"] if x["data"] else datetime.min.date(),
+        x["hora"] or "",
+    ),
+)
 
-# Mapeamento de números de mês para nomes
+# Mapeamento de números de mês para nomes (para exibição nos filtros)
 mes_label_map = {
     1: "01 Janeiro", 2: "02 Fevereiro", 3: "03 Março", 4: "04 Abril",
     5: "05 Maio", 6: "06 Junho", 7: "07 Julho", 8: "08 Agosto",
@@ -196,7 +227,7 @@ mes_label_map = {
 # Coleta de opções para os filtros
 modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
 anos_disponiveis = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"])))
-meses_disponiveis = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"])))
+meses_disponiveis = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None))) # Filtra None aqui
 operacoes_disponiveis = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"])))
 
 # Adiciona "Todos" como opção para os filtros
@@ -206,6 +237,7 @@ meses_filtro = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis]
 operacoes_filtro = ["Todos"] + operacoes_disponiveis
 
 # Filtros na sidebar
+st.sidebar.header("Filtros de Arquivos") # Título do filtro
 selected_modelo = st.sidebar.selectbox("Modelo (ex: FTA987BR):", modelos_filtro)
 selected_ano = st.sidebar.selectbox("Ano:", anos_filtro)
 selected_mes_label = st.sidebar.selectbox("Mês:", meses_filtro)
@@ -236,7 +268,11 @@ else:
         st.session_state.selected_file_path = None
 
     for i, arquivo in enumerate(arquivos_filtrados):
-        display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {arquivo['data'].strftime('%d/%m/%Y')} {arquivo['hora']}"
+        # Tratamento para 'data' e 'hora' que podem ser None
+        data_str = arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else "N/D"
+        hora_str = arquivo['hora'] if arquivo['hora'] else "N/D"
+        display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {data_str} {hora_str}"
+
         if st.sidebar.button(display_name, key=f"file_button_{i}"):
             st.session_state.selected_file_path = arquivo['caminho']
             st.rerun() # Força a atualização para mostrar o arquivo selecionado
