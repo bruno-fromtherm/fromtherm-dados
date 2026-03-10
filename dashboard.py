@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import os
@@ -131,68 +132,56 @@ st.markdown(
         color: #00bfff; /* Azul Neon para ícones */
     }
 
-    /* Cores específicas para T-Entrada e T-Saída */
+    /* Cores especiais para T-Entrada e T-Saída */
     .temp-entrada-value {
-        color: #00ffff; /* Azul Neon */
-        font-size: 1.5em;
+        color: #00ffff !important; /* Azul Neon */
         font-weight: bold;
-        text-shadow: 0 0 5px rgba(0, 255, 255, 0.5); /* Brilho */
+        text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
     }
     .temp-saida-value {
-        color: #ff0000; /* Vermelho Vibrante */
-        font-size: 1.5em;
+        color: #ff0000 !important; /* Vermelho Vibrante */
         font-weight: bold;
-        text-shadow: 0 0 5px rgba(255, 0, 0, 0.5); /* Brilho */
-    }
-    .metric-value { /* Estilo para outros valores de métrica */
-        color: #e0e0e0; /* Cinza Gelo */
-        font-size: 1.5em;
-        font-weight: bold;
-    }
-    .metric-icon { /* Estilo para outros ícones de métrica */
-        color: #00bfff; /* Azul Neon */
-        font-size: 1.2em;
-        margin-right: 5px;
+        text-shadow: 0 0 5px rgba(255, 0, 0, 0.7);
     }
 
-    /* Estilo para os botões de arquivo */
+    /* Botões de arquivo */
     .stButton > button {
-        background-color: #003366; /* Fundo azul escuro */
-        color: #e0e0e0; /* Texto cinza gelo */
+        background-color: #003366; /* Azul escuro */
+        color: #e0e0e0;
         border: 1px solid #00bfff; /* Borda azul neon */
         border-radius: 5px;
         padding: 8px 15px;
-        font-weight: 600;
-        transition: all 0.3s ease;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
     }
     .stButton > button:hover {
         background-color: #004080; /* Azul mais claro no hover */
-        border-color: #00ffff; /* Borda azul mais vibrante */
-        box-shadow: 0 0 8px rgba(0, 255, 255, 0.5); /* Brilho no hover */
+        border-color: #00ffff; /* Borda azul mais clara no hover */
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.5); /* Brilho no hover */
     }
 
-    /* Estilo para a tabela de dados */
+    /* Tabela de dados */
     .stDataFrame {
         background-color: rgba(0, 0, 0, 0.1); /* Fundo escuro translúcido */
         border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     .stDataFrame table {
-        color: #e0e0e0; /* Texto da tabela cinza gelo */
+        color: #e0e0e0; /* Texto da tabela */
     }
     .stDataFrame th {
         background-color: rgba(0, 191, 255, 0.1); /* Cabeçalho da tabela azul neon translúcido */
-        color: #00bfff; /* Texto do cabeçalho azul neon */
+        color: #00bfff; /* Texto do cabeçalho */
         font-weight: 600;
     }
     .stDataFrame tr:nth-child(even) {
         background-color: rgba(255, 255, 255, 0.02); /* Linhas pares mais claras */
     }
-    .stDataFrame tr:hover {
-        background-color: rgba(0, 191, 255, 0.05); /* Efeito hover na linha */
+    .stDataFrame tr:nth-child(odd) {
+        background-color: rgba(0, 0, 0, 0.05); /* Linhas ímpares mais escuras */
     }
 
-    /* Estilo para o multiselect de gráficos */
+    /* Multiselect para gráficos */
     .stMultiSelect > label {
         color: #00bfff; /* Rótulo do multiselect */
     }
@@ -202,43 +191,51 @@ st.markdown(
         border: 1px solid #00bfff;
     }
     .stMultiSelect > div > div > div > div > div {
-        background-color: #003366; /* Opções do multiselect */
+        background-color: #003366; /* Opções selecionadas */
         color: #e0e0e0;
     }
     .stMultiSelect > div > div > div > div > div:hover {
         background-color: #004080;
     }
-    .stMultiSelect .st-emotion-cache-1r6dm1x { /* Tags selecionadas */
-        background-color: #00bfff;
-        color: #001f3f;
+    .stMultiSelect > div > div > div > div > div > span {
+        color: #e0e0e0;
     }
 
-    /* Ajustes de responsividade para telas menores */
+    /* Mensagens de alerta/info */
+    .stAlert {
+        background-color: rgba(0, 191, 255, 0.1);
+        color: #00bfff;
+        border-left: 5px solid #00bfff;
+    }
+    .stAlert > div > div > p {
+        color: #e0e0e0 !important;
+    }
+
+    /* Responsividade para Mobile */
     @media (max-width: 768px) {
         .main > div {
-            padding: 10px 15px 20px 15px; /* Reduz o padding em mobile */
+            padding: 15px 20px 30px 20px; /* Reduz padding em mobile */
         }
         h1 {
-            font-size: 1.8em !important;
+            font-size: 1.8em !important; /* Reduz tamanho do título principal */
         }
-        h4 {
-            font-size: 1em !important;
+        .metric-card h4 {
+            font-size: 1em; /* Reduz tamanho do título da métrica */
         }
-        .temp-entrada-value, .temp-saida-value, .metric-value {
-            font-size: 1.2em !important; /* Reduz o tamanho da fonte dos valores */
+        .st-emotion-cache-1r6dm1x { /* Valor da métrica */
+            font-size: 1.3em;
         }
-        .metric-icon {
-            font-size: 1em !important;
-        }
-
-        /* Empilhamento de colunas para mobile */
-        div[data-testid="stVerticalBlock"] > div > div > div:has(button),
-        div[data-testid="stHorizontalBlock"] > div > div > div:has(.metric-card),
-        div[data-testid="stHorizontalBlock"] > div > div > div:has(.stPlotlyChart) {
+        /* Empilha cards de métricas */
+        div[data-testid="stHorizontalBlock"] > div > div > div:has(.metric-card) {
             width: 100% !important;
-            margin-bottom: 10px; /* Espaçamento entre elementos empilhados */
+            margin-bottom: 10px;
         }
-        /* Garantir que o gráfico Plotly ocupe 100% da largura */
+        /* Empilha botões de arquivo */
+        div[data-testid="stVerticalBlock"] > div > div > div:has(button) {
+            width: 100% !important;
+            margin-bottom: 8px;
+        }
+        /* Gráficos ocupam 100% da largura */
         .stPlotlyChart {
             width: 100% !important;
         }
@@ -250,58 +247,104 @@ st.markdown(
 
 # --- Funções Auxiliares ---
 
-# Função para formatar números para o padrão brasileiro
-def format_br_number(value, decimals=2, unit=""):
-    if pd.isna(value):
-        return "N/D"
-    try:
-        # Converte para float, arredonda e formata
-        num = float(value)
-        formatted_num = f"{num:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        return f"{formatted_num} {unit}".strip()
-    except (ValueError, TypeError):
-        return "N/D"
+@st.cache_data(ttl=3600) # Cache para 1 hora
+def listar_arquivos_csv(caminho_base):
+    """Lista arquivos CSV, extrai metadados e ordena pelo mais recente."""
+    arquivos_encontrados = []
+    # Caminho para a pasta de dados brutos
+    caminho_dados_brutos = os.path.join(caminho_base, 'dados_brutos')
 
-# Função para carregar e processar arquivos CSV
-@st.cache_data(ttl=3600) # Cache por 1 hora
-def carregar_csv_caminho(caminho_arquivo):
+    # Usar glob para encontrar todos os arquivos .csv recursivamente
+    # Ajustado para buscar especificamente na estrutura de pastas que você mencionou
+    # Ex: dados_brutos/historico_L1/IP_registro192.168.2.150/datalog/*.csv
+    for root, _, files in os.walk(caminho_dados_brutos):
+        for file in files:
+            if file.endswith('.csv'):
+                full_path = os.path.join(root, file)
+                # Extrair informações do nome do arquivo
+                # Ex: historico_L1_20260308_0939_OP987_FTA987BR.csv
+                match = re.match(r"historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP\d+)_([a-zA-Z0-9\._-]+)\.csv", file)
+
+                modelo = "N/D"
+                operacao = "N/D"
+                data_str = "N/D"
+                hora_str = "N/D"
+                data_obj = None
+
+                if match:
+                    ano, mes, dia, hora_min, op, mod = match.groups()
+                    data_str = f"{dia}/{mes}/{ano}"
+                    hora_str = f"{hora_min[:2]}:{hora_min[2:]}"
+                    modelo = mod
+                    operacao = op
+                    try:
+                        data_obj = datetime.strptime(f"{ano}-{mes}-{dia} {hora_min}", "%Y-%m-%d %H%M")
+                    except ValueError:
+                        pass # data_obj permanece None se houver erro
+
+                arquivos_encontrados.append({
+                    "nome_arquivo": file,
+                    "caminho_completo": full_path,
+                    "modelo": modelo,
+                    "operacao": operacao,
+                    "data": data_str,
+                    "hora": hora_str,
+                    "data_obj": data_obj # Para ordenação
+                })
+
+    # Ordenar os arquivos pelo mais recente primeiro
+    arquivos_encontrados.sort(key=lambda x: x['data_obj'] if x['data_obj'] else datetime.min, reverse=True)
+    return arquivos_encontrados
+
+@st.cache_data(ttl=600) # Cache para 10 minutos
+def carregar_csv_caminho(caminho_completo):
+    """
+    Carrega um arquivo CSV com separador '|', remove a linha de separação
+    e padroniza os nomes das colunas.
+    """
     try:
-        with open(caminho_arquivo, 'r', encoding='utf-8') as f:
+        # Ler o conteúdo do arquivo como uma string
+        with open(caminho_completo, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
-        # Encontra a linha de cabeçalho (primeira linha)
-        header_line = lines[0]
+        # Filtrar a linha de separação '| --- | --- | ... |' e linhas vazias
+        filtered_lines = []
+        header_line = ""
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            if not stripped_line: # Ignorar linhas completamente vazias
+                continue
+            if re.match(r'^\|\s*-+\s*(\|\s*-+\s*)*\|$', stripped_line): # Linha de separação
+                continue
+            if i == 0: # Assumir que a primeira linha não filtrada é o cabeçalho
+                header_line = stripped_line
+            filtered_lines.append(stripped_line)
 
-        # Encontra e remove a linha de separação '| --- | --- | ... |'
-        # Usamos um regex para ser mais flexível na identificação
-        filtered_lines = [line for line in lines if not re.match(r'^\|\s*-+\s*(\|\s*-+\s*)*\|$', line.strip())]
-
-        # Se a linha de cabeçalho foi removida por engano (ex: se o cabeçalho for igual ao separador),
-        # ou se não há linhas suficientes, tentamos recuperar.
-        if len(filtered_lines) < 2 and len(lines) >= 2: # Pelo menos cabeçalho e uma linha de dados
-            filtered_lines = lines # Reverte para as linhas originais e tenta com skipinitialspace
-
-        # Junta as linhas filtradas em uma única string para o pandas
-        data_string = "".join(filtered_lines)
-
-        # Tenta ler o CSV com pandas
-        df = pd.read_csv(StringIO(data_string), sep='|', skipinitialspace=True)
-
-        # Remove a primeira e a última coluna que geralmente são vazias devido ao separador '|'
-        # Verifica se o DataFrame tem colunas suficientes antes de tentar fatiar
-        if df.shape[1] > 2:
-            df = df.iloc[:, 1:-1]
-        else: # Se tiver 2 ou menos colunas, algo está errado, retorna vazio
-            st.error(f"Erro: O arquivo '{os.path.basename(caminho_arquivo)}' não tem colunas suficientes após a leitura. Conteúdo: {data_string[:200]}...")
+        if not filtered_lines:
+            st.error(f"Erro: O arquivo '{os.path.basename(caminho_completo)}' está vazio ou não contém dados válidos.")
             return pd.DataFrame()
 
-        # Limpa espaços em branco dos nomes das colunas
+        # Juntar as linhas filtradas em uma única string para StringIO
+        csv_content = "\n".join(filtered_lines)
+
+        # Usar StringIO para ler com pandas
+        df = pd.read_csv(StringIO(csv_content), sep='|', skipinitialspace=True)
+
+        # Remover a primeira e a última coluna que podem ser vazias devido ao separador '|'
+        # Verificar se há colunas suficientes antes de tentar remover
+        if df.shape[1] > 2:
+            df = df.iloc[:, 1:-1]
+        elif df.shape[1] == 2: # Se só tiver 2 colunas, pode ser que uma seja o índice e outra o dado
+            df = df.iloc[:, 1:] # Tenta remover a primeira
+        else:
+            st.error(f"Erro: O arquivo '{os.path.basename(caminho_completo)}' não tem colunas suficientes após a leitura. Conteúdo: {csv_content[:200]}...")
+            return pd.DataFrame()
+
+        # Limpar espaços em branco dos nomes das colunas
         df.columns = df.columns.str.strip()
 
-        # Mapeamento de nomes de colunas (do CSV para o padrão do dashboard)
+        # Mapeamento de nomes de colunas para padronização
         column_mapping = {
-            'Date': 'Date',
-            'Time': 'Time',
             'ambiente': 'Ambiente',
             'entrada': 'Entrada',
             'saida': 'Saída',
@@ -313,295 +356,222 @@ def carregar_csv_caminho(caminho_arquivo):
             'kw aquecimento': 'Kw Aquecimento',
             'kw consumo': 'Kw Consumo',
             'cop': 'COP',
+            'Date': 'Date', # Manter Date e Time como estão
+            'Time': 'Time'
         }
-        # Aplica o mapeamento apenas para colunas que existem no DataFrame
+        # Aplicar o mapeamento apenas para colunas existentes
         df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
 
-        # --- Criação da coluna 'DateTime' ---
+        # --- Criação da coluna DateTime ---
         if 'Date' in df.columns and 'Time' in df.columns:
-            # Garante que 'Date' e 'Time' são strings e substitui '/' por '-' em 'Date'
+            # Padronizar a coluna 'Date' para 'YYYY-MM-DD'
             df['Date'] = df['Date'].astype(str).str.replace('/', '-', regex=False)
-            df['Time'] = df['Time'].astype(str)
+            df['Time'] = df['Time'].astype(str) # Garantir que Time é string
 
-            # Tenta converter para datetime com formato específico, e se falhar, tenta inferir
+            # Tentar converter para datetime com formato específico
             df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], errors='coerce', format='%Y-%m-%d %H:%M:%S')
 
-            # Se a conversão com formato falhar para muitas linhas, tenta inferir
-            if df['DateTime'].isnull().sum() > len(df) / 2: # Se mais da metade falhou
+            # Se a maioria das conversões falhar, tentar inferir o formato
+            if df['DateTime'].isnull().sum() > len(df) / 2:
+                st.warning("Formato de data/hora '%Y-%m-%d %H:%M:%S' não funcionou para a maioria das linhas. Tentando inferir formato...")
                 df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], errors='coerce')
 
-            df.dropna(subset=['DateTime'], inplace=True) # Remove linhas onde DateTime não pôde ser criado
+            # Remover linhas onde DateTime não pôde ser criado
+            df.dropna(subset=['DateTime'], inplace=True)
 
             if df.empty:
-                st.warning(f"Aviso: Nenhuma linha válida após a criação de 'DateTime' no arquivo '{os.path.basename(caminho_arquivo)}'.")
+                st.error(f"Erro: Após processar 'Date' e 'Time', o DataFrame ficou vazio para '{os.path.basename(caminho_completo)}'.")
                 return pd.DataFrame()
         else:
-            st.error(f"Erro: Colunas 'Date' ou 'Time' não encontradas para criar 'DateTime' no arquivo '{os.path.basename(caminho_arquivo)}'. Colunas disponíveis: {df.columns.tolist()}")
+            st.error(f"Erro: Colunas 'Date' ou 'Time' não encontradas para criar 'DateTime' no arquivo '{os.path.basename(caminho_completo)}'. Colunas disponíveis: {df.columns.tolist()}")
             return pd.DataFrame()
 
         # --- Conversão de colunas numéricas ---
-        numeric_cols = [col for col in df.columns if col not in ['Date', 'Time', 'DateTime']]
+        # Lista de colunas que devem ser numéricas (usando os nomes padronizados)
+        numeric_cols = [
+            'Ambiente', 'Entrada', 'Saída', 'ΔT', 'Tensão', 'Corrente',
+            'Kcal/h', 'Vazão', 'Kw Aquecimento', 'Kw Consumo', 'COP'
+        ]
         for col in numeric_cols:
-            # Converte vírgula para ponto e depois para numérico
-            df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
-            df[col] = pd.to_numeric(df[col], errors='coerce')
+            if col in df.columns:
+                # Substituir vírgula por ponto e converter para numérico
+                df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        return df.sort_values('DateTime').reset_index(drop=True)
+        return df
 
     except Exception as e:
-        st.error(f"Erro ao carregar o arquivo CSV '{os.path.basename(caminho_arquivo)}': {e}")
+        st.error(f"Erro ao carregar o arquivo CSV: {e}")
         return pd.DataFrame()
 
-# Função para listar arquivos CSV e extrair metadados
-@st.cache_data(ttl=3600)
-def listar_arquivos_csv(diretorio_base):
-    arquivos_encontrados = []
-    # Caminho para os arquivos de teste
-    caminho_dados = os.path.join(diretorio_base, "dados_brutos", "historico_L1", "**", "*.csv")
+def format_br_number(value, decimals=2, unit=""):
+    """Formata um número para o padrão brasileiro (vírgula decimal, ponto de milhar)
+    e trata valores NaN/None."""
+    if pd.isna(value):
+        return "N/D"
 
-    for caminho_completo in glob.glob(caminho_dados, recursive=True):
-        nome_arquivo = os.path.basename(caminho_completo)
-
-        # Expressão regular mais flexível para extrair informações
-        # Captura: Ano, Mês, Dia, Hora, Operação (OP seguido de dígitos), Modelo (qualquer coisa depois de OP)
-        match = re.match(r"historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP\d+)_([a-zA-Z0-9\._-]+)\.csv", nome_arquivo)
-
-        if match:
-            ano, mes, dia, hora_str, operacao, modelo = match.groups()
-            data_str = f"{dia}/{mes}/{ano}"
-            hora_formatada = f"{hora_str[:2]}:{hora_str[2:]}"
-
-            try:
-                data_obj = datetime.strptime(f"{ano}-{mes}-{dia} {hora_formatada}", "%Y-%m-%d %H:%M")
-            except ValueError:
-                data_obj = None # Se a data/hora for inválida, define como None
-        else:
-            # Se o nome do arquivo não seguir o padrão, usa valores padrão
-            ano, mes, dia, hora_formatada, operacao, modelo = "N/D", "N/D", "N/D", "N/D", "N/D", "N/D"
-            data_str = "N/D"
-            data_obj = None
-
-        arquivos_encontrados.append({
-            'caminho_completo': caminho_completo,
-            'nome_arquivo': nome_arquivo,
-            'modelo': modelo,
-            'operacao': operacao,
-            'ano': ano,
-            'mes': mes,
-            'dia': dia,
-            'data': data_str,
-            'hora': hora_formatada,
-            'data_obj': data_obj # Para ordenação e filtro
-        })
-
-    # Ordena os arquivos pelo objeto de data, se disponível, ou pelo nome do arquivo
-    arquivos_encontrados.sort(key=lambda x: x['data_obj'] if x['data_obj'] else datetime.min, reverse=True)
-
-    return arquivos_encontrados
+    # Formata o número com 2 casas decimais e ponto como separador de milhar
+    # e vírgula como separador decimal
+    formatted_value = f"{value:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{formatted_value} {unit}".strip()
 
 # --- Carregar todos os arquivos CSV disponíveis ---
-# Usar o diretório atual do script como base
-base_dir = os.path.dirname(os.path.abspath(__file__))
-all_files_metadata = listar_arquivos_csv(base_dir)
+# Define o caminho base para a busca de arquivos
+# Assumindo que o script está na raiz do repositório 'fromtherm-dados'
+base_path = os.path.dirname(os.path.abspath(__file__))
+all_files = listar_arquivos_csv(base_path)
 
-# Extrair opções únicas para os filtros
-all_modelos = sorted(list(set([a['modelo'] for a in all_files_metadata if a['modelo'] != 'N/D'])))
-all_operacoes = sorted(list(set([a['operacao'] for a in all_files_metadata if a['operacao'] != 'N/D'])))
-all_anos = sorted(list(set([a['ano'] for a in all_files_metadata if a['ano'] != 'N/D'])), reverse=True)
-all_meses = sorted(list(set([a['mes'] for a in all_files_metadata if a['mes'] != 'N/D'])))
+# --- Sidebar para Filtros ---
+st.sidebar.header("Filtros de Arquivos")
+
+# Extrair todas as opções únicas para os filtros
+all_modelos = sorted(list(set(f['modelo'] for f in all_files if f['modelo'] != "N/D")))
+all_operacoes = sorted(list(set(f['operacao'] for f in all_files if f['operacao'] != "N/D")))
+all_anos = sorted(list(set(f['data_obj'].year for f in all_files if f['data_obj'] is not None)), reverse=True)
+all_meses = sorted(list(set(f['data_obj'].month for f in all_files if f['data_obj'] is not None)))
+
+# Adicionar opção "Todos"
+all_modelos.insert(0, "Todos")
+all_operacoes.insert(0, "Todos")
+all_anos.insert(0, "Todos")
+all_meses.insert(0, "Todos")
+
+selected_modelo = st.sidebar.selectbox("Modelo (ex: FTI165HBR):", all_modelos, key="modelo_filter")
+
+# Filtrar operações com base no modelo selecionado
+filtered_ops_by_model = [f['operacao'] for f in all_files if (selected_modelo == "Todos" or f['modelo'] == selected_modelo) and f['operacao'] != "N/D"]
+unique_filtered_ops = sorted(list(set(filtered_ops_by_model)))
+unique_filtered_ops.insert(0, "Todos")
+selected_operacao = st.sidebar.selectbox("N° Operação (ex: OP987):", unique_filtered_ops, key="operacao_filter")
+
+# Filtrar anos com base no modelo e operação
+filtered_anos_by_selection = [f['data_obj'].year for f in all_files if 
+                              (selected_modelo == "Todos" or f['modelo'] == selected_modelo) and
+                              (selected_operacao == "Todos" or f['operacao'] == selected_operacao) and
+                              f['data_obj'] is not None]
+unique_filtered_anos = sorted(list(set(filtered_anos_by_selection)), reverse=True)
+unique_filtered_anos.insert(0, "Todos")
+selected_ano = st.sidebar.selectbox("Ano:", unique_filtered_anos, key="ano_filter")
+
+# Filtrar meses com base no modelo, operação e ano
+filtered_meses_by_selection = [f['data_obj'].month for f in all_files if 
+                               (selected_modelo == "Todos" or f['modelo'] == selected_modelo) and
+                               (selected_operacao == "Todos" or f['operacao'] == selected_operacao) and
+                               (selected_ano == "Todos" or f['data_obj'].year == selected_ano) and
+                               f['data_obj'] is not None]
+unique_filtered_meses = sorted(list(set(filtered_meses_by_selection)))
+unique_filtered_meses.insert(0, "Todos")
+selected_mes = st.sidebar.selectbox("Mês:", unique_filtered_meses, key="mes_filter")
+
+# Aplicar filtros aos arquivos
+filtered_files = [f for f in all_files if
+                  (selected_modelo == "Todos" or f['modelo'] == selected_modelo) and
+                  (selected_operacao == "Todos" or f['operacao'] == selected_operacao) and
+                  (selected_ano == "Todos" or (f['data_obj'] and f['data_obj'].year == selected_ano)) and
+                  (selected_mes == "Todos" or (f['data_obj'] and f['data_obj'].month == selected_mes))]
 
 # --- Painel de Última Leitura Registrada ---
-st.markdown(
-    f"<p style='color: #00bfff; font-size: 1.5em; font-weight: bold; text-shadow: 0 0 5px rgba(0, 191, 255, 0.5);'>Última Leitura Registrada</p>",
-    unsafe_allow_html=True
-)
+st.markdown("<p style='color: #00bfff; font-size: 1.5em; font-weight: bold; text-shadow: 0 0 5px rgba(0, 191, 255, 0.5);'>Última Leitura Registrada</p>", unsafe_allow_html=True)
 
-arquivo_mais_recente = None
-if all_files_metadata:
-    # O primeiro arquivo na lista já é o mais recente devido à ordenação
-    arquivo_mais_recente = all_files_metadata[0]
+df_ultima_leitura = pd.DataFrame()
+ultima_linha = {}
+ultima_leitura_data_hora_str = "N/D"
+ultima_leitura_arquivo_nome = "N/D"
 
-if arquivo_mais_recente:
-    st.markdown(
-        f"<p style='color: #e0e0e0; font-size: 1em;'>Arquivo: <span style='color: #00bfff;'>{arquivo_mais_recente['nome_arquivo']}</span></p>",
-        unsafe_allow_html=True
-    )
+if filtered_files:
+    # O arquivo mais recente já está no topo da lista 'filtered_files' devido à ordenação em listar_arquivos_csv
+    arquivo_mais_recente = filtered_files[0]
+    ultima_leitura_arquivo_nome = arquivo_mais_recente['nome_arquivo']
 
-    ultima_leitura_str = "N/D"
-    if arquivo_mais_recente['data_obj']:
-        ultima_leitura_str = arquivo_mais_recente['data_obj'].strftime("%d/%m/%Y %H:%M")
-    st.markdown(
-        f"<p style='color: #e0e0e0; font-size: 1em;'>Última leitura: <span style='color: #00bfff;'>{ultima_leitura_str}</span></p>",
-        unsafe_allow_html=True
-    )
-
+    # Tentar carregar o CSV do arquivo mais recente
     df_ultima_leitura = carregar_csv_caminho(arquivo_mais_recente['caminho_completo'])
 
     if not df_ultima_leitura.empty:
-        ultima_linha = df_ultima_leitura.iloc[-1] # Pega a última linha do DataFrame
-
-        # Definir os títulos das métricas e suas unidades
-        metric_titles = {
-            "Ambiente": "T-Ambiente",
-            "Entrada": "T-Entrada",
-            "Saída": "T-Saída",
-            "ΔT": "Dif",
-            "Tensão": "Tensão",
-            "Corrente": "Corrente",
-            "Kcal/h": "Kcal/h",
-            "Vazão": "Vazão",
-            "Kw Aquecimento": "Kw Aquecimento",
-            "Kw Consumo": "Kw Consumo",
-            "COP": "COP",
-        }
-        metric_units = {
-            "Ambiente": "°C", "Entrada": "°C", "Saída": "°C", "ΔT": "°C",
-            "Tensão": "V", "Corrente": "A", "Kcal/h": "Kcal/h", "Vazão": "L/h",
-            "Kw Aquecimento": "kW", "Kw Consumo": "kW", "COP": "",
-        }
-        metric_icons = {
-            "Ambiente": "🌍", "Entrada": "➡️", "Saída": "⬅️", "ΔT": "🌡️",
-            "Tensão": "⚡", "Corrente": "🔌", "Kcal/h": "🔥", "Vazão": "💧",
-            "Kw Aquecimento": "♨️", "Kw Consumo": "💡", "COP": "📈",
-        }
-
-        # Organiza as métricas em 4 colunas para desktop, empilhando em mobile
-        cols_metrics = st.columns(4)
-        col_idx = 0
-
-        for original_col, display_title in metric_titles.items():
-            with cols_metrics[col_idx]:
-                valor = ultima_linha.get(original_col, np.nan) # Usa .get para evitar KeyError
-                display_value = format_br_number(valor, unit=metric_units.get(original_col, ""))
-                icon = metric_icons.get(original_col, "📊")
-
-                # Estilos específicos para T-Entrada e T-Saída
-                if original_col == "Entrada":
-                    st.markdown(
-                        f"""
-                        <div class="metric-card">
-                            <h4>{display_title}</h4>
-                            <span class="metric-icon">{icon}</span> <span class="temp-entrada-value">{display_value}</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                elif original_col == "Saída":
-                    st.markdown(
-                        f"""
-                        <div class="metric-card">
-                            <h4>{display_title}</h4>
-                            <span class="metric-icon">{icon}</span> <span class="temp-saida-value">{display_value}</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        f"""
-                        <div class="metric-card">
-                            <h4>{display_title}</h4>
-                            <span class="metric-icon">{icon}</span> <span class="metric-value">{display_value}</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-            col_idx = (col_idx + 1) % 4 # Avança para a próxima coluna ou volta para a primeira
+        ultima_linha = df_ultima_leitura.iloc[-1].to_dict() # Pega a última linha do DF
+        if 'DateTime' in ultima_linha and pd.notna(ultima_linha['DateTime']):
+            ultima_leitura_data_hora_str = ultima_linha['DateTime'].strftime("%d/%m/%Y %H:%M:%S")
+        else:
+            st.warning("Coluna 'DateTime' não encontrada ou inválida na última leitura para o painel.")
     else:
-        st.error("Não foi possível carregar ou processar os dados do arquivo mais recente para o painel de última leitura.")
+        st.warning(f"Não foi possível carregar ou processar os dados do arquivo mais recente para o painel de última leitura: {ultima_leitura_arquivo_nome}")
 else:
-    st.info("Nenhum arquivo CSV encontrado para exibir a última leitura.")
+    st.info("Nenhum arquivo encontrado para exibir a última leitura.")
 
-st.markdown("---") # Separador visual
+st.markdown(f"<p style='color: #e0e0e0; font-size: 0.9em;'>Arquivo: <span style='color: #00bfff;'>{ultima_leitura_arquivo_nome}</span></p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #e0e0e0; font-size: 0.9em;'>Última leitura: <span style='color: #00bfff;'>{ultima_leitura_data_hora_str}</span></p>", unsafe_allow_html=True)
+
+if not df_ultima_leitura.empty:
+    # Definir os títulos, ícones e unidades das métricas
+    metric_definitions = [
+        ("Ambiente", "T-Ambiente", "🌡️", "°C"),
+        ("Entrada", "T-Entrada", "➡️", "°C"),
+        ("Saída", "T-Saída", "⬅️", "°C"),
+        ("ΔT", "Dif", "🔥", "°C"),
+        ("Tensão", "Tensão", "⚡", "V"),
+        ("Corrente", "Corrente", "🔌", "A"),
+        ("Kcal/h", "Kcal/h", "♨️", "Kcal/h"),
+        ("Vazão", "Vazão", "💧", "L/h"),
+        ("Kw Aquecimento", "Kw Aquecimento", "📈", "kW"),
+        ("Kw Consumo", "Kw Consumo", "📉", "kW"),
+        ("COP", "COP", "📊", ""),
+    ]
+
+    # Organizar as métricas em 4 colunas para desktop (e empilhar em mobile via CSS)
+    cols_metrics = st.columns(4)
+
+    for i, (col_name, display_title, icon, unit) in enumerate(metric_definitions):
+        with cols_metrics[i % 4]: # Distribui em 4 colunas
+            value = ultima_linha.get(col_name, np.nan) # Pega o valor, default é NaN
+            formatted_value = format_br_number(value, decimals=2, unit=unit)
+
+            # Estilo especial para T-Entrada e T-Saída
+            if col_name == "Entrada":
+                value_html = f"<span class='temp-entrada-value'>{formatted_value}</span>"
+            elif col_name == "Saída":
+                value_html = f"<span class='temp-saida-value'>{formatted_value}</span>"
+            else:
+                value_html = f"<span style='color: #e0e0e0; font-weight: bold;'>{formatted_value}</span>" # Cinza gelo para outros
+
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <h4>{icon} {display_title}</h4>
+                    <p style='font-size: 1.5em;'>{value_html}</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+else:
+    st.info("Não há dados de última leitura disponíveis para exibir as métricas.")
+
+st.markdown("---")
 
 # --- Título Principal ---
-st.title("Máquina de Teste Fromtherm")
+st.markdown("<h1>Máquina de Teste Fromtherm</h1>", unsafe_allow_html=True)
 
-# --- Filtros de Arquivos (Sidebar) ---
-st.sidebar.markdown(
-    f"<p style='color: #00bfff; font-size: 1.2em; font-weight: bold;'>Filtros de Arquivos</p>",
-    unsafe_allow_html=True
-)
-
-selected_modelo = st.sidebar.selectbox(
-    "Modelo (ex: FTI165HBR):",
-    ["Todos"] + all_modelos,
-    key="filter_modelo"
-)
-
-# Filtra operações com base no modelo selecionado
-filtered_operacoes = sorted(list(set([
-    a['operacao'] for a in all_files_metadata
-    if (selected_modelo == "Todos" or a['modelo'] == selected_modelo) and a['operacao'] != 'N/D'
-])))
-selected_operacao = st.sidebar.selectbox(
-    "N° Operação (ex: OP987):",
-    ["Todos"] + filtered_operacoes,
-    key="filter_operacao"
-)
-
-# Filtra anos com base no modelo e operação selecionados
-filtered_anos = sorted(list(set([
-    a['ano'] for a in all_files_metadata
-    if (selected_modelo == "Todos" or a['modelo'] == selected_modelo) and
-       (selected_operacao == "Todos" or a['operacao'] == selected_operacao) and
-       a['ano'] != 'N/D'
-])), reverse=True)
-selected_ano = st.sidebar.selectbox(
-    "Ano:",
-    ["Todos"] + filtered_anos,
-    key="filter_ano"
-)
-
-# Filtra meses com base no modelo, operação e ano selecionados
-filtered_meses = sorted(list(set([
-    a['mes'] for a in all_files_metadata
-    if (selected_modelo == "Todos" or a['modelo'] == selected_modelo) and
-       (selected_operacao == "Todos" or a['operacao'] == selected_operacao) and
-       (selected_ano == "Todos" or a['ano'] == selected_ano) and
-       a['mes'] != 'N/D'
-])))
-selected_mes = st.sidebar.selectbox(
-    "Mês:",
-    ["Todos"] + filtered_meses,
-    key="filter_mes"
-)
-
-# --- Aplicar filtros aos arquivos ---
-arquivos_filtrados = [
-    a for a in all_files_metadata
-    if (selected_modelo == "Todos" or a['modelo'] == selected_modelo) and
-       (selected_operacao == "Todos" or a['operacao'] == selected_operacao) and
-       (selected_ano == "Todos" or a['ano'] == selected_ano) and
-       (selected_mes == "Todos" or a['mes'] == selected_mes)
-]
-
-# --- Exibição dos Arquivos Disponíveis (Área Principal) ---
+# --- Seção de Arquivos Disponíveis ---
 st.subheader("Arquivos Disponíveis")
 
-if arquivos_filtrados:
-    # Exibe os botões em colunas, 3 por linha para desktop, empilhando em mobile
-    cols_per_row = 3
-    for i in range(0, len(arquivos_filtrados), cols_per_row):
-        cols = st.columns(cols_per_row)
-        for j in range(cols_per_row):
-            if i + j < len(arquivos_filtrados):
-                arquivo = arquivos_filtrados[i + j]
-                with cols[j]:
-                    if st.button(arquivo['nome_arquivo'], key=f"file_button_{arquivo['nome_arquivo']}"):
-                        st.session_state['selected_file_path'] = arquivo['caminho_completo']
-                        st.session_state['selected_file_name'] = arquivo['nome_arquivo']
-                        st.rerun() # Recarrega a página para exibir o arquivo selecionado
+if filtered_files:
+    # Exibir os arquivos filtrados como botões
+    # Organizar em 3 colunas para desktop (e empilhar em mobile via CSS)
+    cols = st.columns(3)
+    for i, arquivo in enumerate(filtered_files):
+        with cols[i % 3]:
+            display_name = arquivo['nome_arquivo'] # Exibe o nome original do arquivo
+            if st.button(display_name, key=f"file_button_{arquivo['nome_arquivo']}"):
+                st.session_state['selected_file'] = arquivo['caminho_completo']
+                st.session_state['selected_filename'] = arquivo['nome_arquivo']
+                st.rerun() # Recarrega a página para exibir o arquivo selecionado
 else:
-    st.info("Nenhum arquivo encontrado com os filtros selecionados.")
+    st.info("Nenhum arquivo CSV encontrado com os filtros aplicados.")
 
 # --- Visualização do Arquivo Selecionado ---
-selected_file_path = st.session_state.get('selected_file_path', None)
-selected_filename = st.session_state.get('selected_file_name', None)
+if 'selected_file' in st.session_state and st.session_state['selected_file']:
+    selected_file_path = st.session_state['selected_file']
+    selected_filename = st.session_state['selected_filename']
 
-if selected_file_path and selected_filename:
-    st.markdown("---")
-    st.subheader(f"Visualizando: {selected_filename}")
+    st.markdown(f"<p style='color: #00bfff; font-size: 1.2em; font-weight: bold;'>Visualizando: <span style='color: #e0e0e0;'>{selected_filename}</span></p>", unsafe_allow_html=True)
 
     df_dados = carregar_csv_caminho(selected_file_path)
 
@@ -609,34 +579,16 @@ if selected_file_path and selected_filename:
         st.markdown("### Dados Brutos")
         st.dataframe(df_dados, use_container_width=True)
 
-        # --- Botão de Exportar para Excel ---
-        output_excel = BytesIO()
-        with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
-            df_dados.to_excel(writer, index=False, sheet_name='Dados Fromtherm')
+        # Botão de download para Excel
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+            df_dados.to_excel(writer, index=False, sheet_name='Dados')
+        excel_buffer.seek(0)
 
-            # Ajustar largura das colunas no Excel
-            workbook = writer.book
-            worksheet = writer.sheets['Dados Fromtherm']
-            for col_idx, col_name in enumerate(df_dados.columns):
-                if "Modelo" in col_name or "Operação" in col_name:
-                    worksheet.set_column(col_idx, col_idx, 15)
-                elif "Ambiente" in col_name or "Entrada" in col_name or "Saída" in col_name or "ΔT" in col_name:
-                    worksheet.set_column(col_idx, col_idx, 10)
-                elif "Date" in col_name or "DateTime" in col_name:
-                    worksheet.set_column(col_idx, col_idx, 18) # Mais largo para DateTime
-                elif "Time" in col_name:
-                    worksheet.set_column(col_idx, col_idx, 10)
-                else:
-                    worksheet.set_column(col_idx, col_idx, 12)
-
-        output_excel.seek(0)
-
-        # Gera o nome do arquivo para download (usa o nome original do CSV, mas com extensão .xlsx)
         excel_file_name = selected_filename.replace('.csv', '.xlsx')
-
         st.download_button(
-            label="Exportar para Excel",
-            data=output_excel,
+            label="Baixar como Excel",
+            data=excel_buffer,
             file_name=excel_file_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key=f"excel_download_{selected_filename}",
@@ -653,7 +605,7 @@ if selected_file_path and selected_filename:
             st.markdown("### Variáveis para o gráfico")
 
             # Usar os nomes de colunas do DataFrame carregado, exceto 'DateTime', 'Date', 'Time'
-            variaveis_opcoes = [col for col in df_graf.columns if col not in ['DateTime', 'Date', 'Time']]
+            variaveis_opcoes = [col for col col in df_graf.columns if col not in ['DateTime', 'Date', 'Time']]
 
             vars_selecionadas = st.multiselect(
                 "Selecione uma ou mais variáveis:",
