@@ -78,8 +78,8 @@ DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 def listar_arquivos_csv():
     """
     Lista todos os arquivos .csv na pasta DADOS_DIR
-    e extrai informações básicas do nome:
-    historico_L1_20260308_0939_OP987_FTA987BR.csv
+    e extrai informações básicas do nome.
+    Tenta ser flexível com o padrão de nome.
     """
     if not os.path.exists(DADOS_DIR):
         return []
@@ -89,8 +89,13 @@ def listar_arquivos_csv():
 
     for caminho in arquivos:
         nome = os.path.basename(caminho)
-        # Ajustado para o novo padrão de nome de arquivo
-        match = re.match(r"historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP\d{3})_(FTA\d{3}BR)\.csv", nome)
+
+        # Padrão mais flexível para capturar OP e o final do nome
+        # Ex: historico_L1_20260308_0939_OP987_FTA987BR.csv
+        # Ex: historico_L1_20260306_1717_OP9090_FT55L.csv
+        match = re.match(r"historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP\d+)_([a-zA-Z0-9]+)\.csv", nome)
+
+        data, ano, mes, hora, operacao, modelo = None, None, None, None, "N/D", "N/D"
 
         if match:
             year_str, month_str, day_str, time_str, operacao, modelo = match.groups()
@@ -101,11 +106,7 @@ def listar_arquivos_csv():
                 mes = int(month_str)
                 hora = f"{time_str[:2]}:{time_str[2:]}"
             except ValueError:
-                # Se a conversão de data/hora falhar, define como None
-                data, ano, mes, hora = None, None, None, None
-        else:
-            # Se o nome do arquivo não corresponder ao padrão, define como N/D ou None
-            data, ano, mes, hora, operacao, modelo = None, None, None, None, "N/D", "N/D"
+                pass # Se a conversão de data/hora falhar, mantém como None
 
         info_arquivos.append(
             {
@@ -226,31 +227,20 @@ mes_label_map = {
     9: "09 Setembro", 10: "10 Outubro", 11: "11 Novembro", 12: "12 Dezembro"
 }
 
-# --- Geração de opções para os filtros (agora com todas as possibilidades) ---
-# Em vez de pegar apenas os disponíveis nos arquivos, vamos listar todas as opções possíveis
-# para que os filtros sempre mostrem todas as opções.
-# Para isso, podemos definir listas estáticas ou gerar de um conjunto maior de dados se houver.
-# Por simplicidade, vou usar as opções encontradas nos arquivos, mas garantindo que 'Todos' esteja lá.
+# Coleta de opções para os filtros (a partir de todos os arquivos)
+modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] and a["modelo"] != "N/D")))
+anos_disponiveis = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"] is not None)))
+meses_disponiveis = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
+operacoes_disponiveis = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"] and a["operacao"] != "N/D")))
 
-# Opções de filtro para Modelo (ex: OP987, FTA987BR)
-all_modelos = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"])))
-modelos_filtro = ["Todos"] + all_modelos
+# Adiciona "Todos" como opção para os filtros
+modelos_filtro = ["Todos"] + modelos_disponiveis
+anos_filtro = ["Todos"] + anos_disponiveis
+meses_filtro = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis]
+operacoes_filtro = ["Todos"] + operacoes_disponiveis
 
-# Opções de filtro para Ano
-all_anos = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"])))
-anos_filtro = ["Todos"] + all_anos
-
-# Opções de filtro para Mês
-all_meses = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
-meses_filtro = ["Todos"] + [mes_label_map[m] for m in all_meses]
-
-# Opções de filtro para Operação (ex: OP987_FTA987BR)
-all_operacoes = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"])))
-operacoes_filtro = ["Todos"] + all_operacoes
-
-
-# --- Filtros na sidebar ---
-st.sidebar.header("Filtros de Arquivos")
+# Filtros na sidebar
+st.sidebar.header("Filtros de Arquivos") # Título do filtro
 selected_modelo = st.sidebar.selectbox("Modelo (ex: FTA987BR):", modelos_filtro)
 selected_ano = st.sidebar.selectbox("Ano:", anos_filtro)
 selected_mes_label = st.sidebar.selectbox("Mês:", meses_filtro)
@@ -271,9 +261,9 @@ arquivos_filtrados = [
 ]
 
 # =====================================================
-#  ÁREA PRINCIPAL: Listagem de Arquivos Disponíveis
+#  ÁREA PRINCIPAL: Lista de Arquivos Disponíveis
 # =====================================================
-st.markdown("---") # Linha divisória para separar do título principal
+st.markdown("---") # Linha divisória
 st.subheader("Arquivos Disponíveis")
 
 if not arquivos_filtrados:
@@ -289,9 +279,15 @@ else:
 
     for i, arquivo in enumerate(arquivos_filtrados):
         with cols[i % cols_per_row]: # Distribui os botões nas colunas
-            data_str = arquivo['data'].strftime('%d/%m/%Y') if arquivo['data'] else "N/D"
-            hora_str = arquivo['hora'] if arquivo['hora'] else "N/D"
-            display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {data_str} {hora_str}"
+            # Aqui está a mudança CRÍTICA:
+            # Se as informações foram extraídas, usa-as. Caso contrário, usa o nome original do arquivo.
+            if arquivo['modelo'] != "N/D" and arquivo['operacao'] != "N/D" and arquivo['data'] and arquivo['hora']:
+                data_str = arquivo['data'].strftime('%d/%m/%Y')
+                hora_str = arquivo['hora']
+                display_name = f"{arquivo['modelo']} - {arquivo['operacao']} - {data_str} {hora_str}"
+            else:
+                # Se alguma informação estiver faltando, mostra o nome completo do arquivo
+                display_name = arquivo['nome_arquivo']
 
             if st.button(display_name, key=f"file_button_{i}", use_container_width=True):
                 st.session_state.selected_file_path = arquivo['caminho']
@@ -337,19 +333,21 @@ if st.session_state.selected_file_path:
 
         # Gera o nome do arquivo para download
         parsed_info = next((a for a in todos_arquivos_info if a['caminho'] == selected_file_path), None)
-        data_nome = parsed_info['data'].strftime('%Y%m%d') if parsed_info and parsed_info['data'] else 'N_D'
-        hora_nome = parsed_info['hora'].replace(':', '') if parsed_info and parsed_info['hora'] else 'N_D'
-        modelo_nome = parsed_info['modelo'] if parsed_info and parsed_info['modelo'] else 'N_D'
-        operacao_nome = parsed_info['operacao'] if parsed_info and parsed_info['operacao'] else 'OP'
+
+        # Usa o nome original do arquivo se as informações parseadas não estiverem completas
+        if parsed_info and parsed_info['modelo'] != "N/D" and parsed_info['operacao'] != "N/D" and parsed_info['data'] and parsed_info['hora']:
+            data_nome = parsed_info['data'].strftime('%Y%m%d')
+            hora_nome = parsed_info['hora'].replace(':', '')
+            modelo_nome = parsed_info['modelo']
+            operacao_nome = parsed_info['operacao']
+            excel_file_name = f"Maquina_{modelo_nome}_{operacao_nome}_{data_nome}_{hora_nome}.xlsx"
+        else:
+            excel_file_name = selected_filename.replace('.csv', '.xlsx') # Usa o nome original do CSV, mas com extensão .xlsx
 
         st.download_button(
             label="Exportar para Excel",
             data=output_excel,
-            file_name=(
-                f"Maquina_{modelo_nome}_"
-                f"{operacao_nome}_"
-                f"{data_nome}_{hora_nome}.xlsx"
-            ),
+            file_name=excel_file_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key=f"excel_download_{selected_filename}",
         )
