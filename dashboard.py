@@ -56,6 +56,30 @@ st.markdown(
         font-size: 0px !important;
         color: transparent !important;
     }
+
+    /* Estilo para os cards de métricas */
+    .metric-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+    .metric-card h4 {
+        color: #003366;
+        font-size: 1.1em;
+        margin-bottom: 5px;
+    }
+    .metric-card .st-emotion-cache-1r6dm1x { /* Alvo para o valor do st.metric */
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #333;
+    }
+    .metric-card .st-emotion-cache-1r6dm1x svg { /* Alvo para o ícone do st.metric */
+        font-size: 1.2em;
+        margin-right: 5px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -183,27 +207,19 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
             df.columns = new_columns
 
 
-        # Combinar 'Date' e 'Time' em uma única coluna de datetime
-        if 'Date' in df.columns and 'Time' in df.columns:
-            # Ajuste o formato da data para 'YYYY/MM/DD' conforme o CSV
-            # E o formato da hora para 'HH:MM:SS'
-            df['DateTime'] = pd.to_datetime(
-                df['Date'].astype(str) + ' ' + df['Time'].astype(str),
-                format='%Y/%m/%d %H:%M:%S', # Formato exato do seu CSV
-                errors='coerce'
-            )
-            # Remove as colunas originais de Date e Time se DateTime foi criada com sucesso
-            if not df['DateTime'].isnull().all():
-                df = df.drop(columns=['Date', 'Time'])
-                # Move 'DateTime' para a primeira coluna
-                df = df[['DateTime'] + [col for col in df.columns if col != 'DateTime']]
-            else:
-                st.warning("Não foi possível converter 'Date' e 'Time' para 'DateTime'. Verifique o formato.")
+        # Criar coluna DateTime combinando Date e Time
+        # Converte 'Date' para string e 'Time' para string antes de combinar
+        df['DateTime'] = pd.to_datetime(df['Date'].astype(str) + ' ' + df['Time'].astype(str), errors='coerce', format='%Y/%m/%d %H:%M:%S')
 
-        # Tentar converter todas as colunas numéricas para float
+        # Move 'DateTime' para a primeira coluna
+        if 'DateTime' in df.columns:
+            cols = ['DateTime'] + [col for col in df.columns if col != 'DateTime']
+            df = df[cols]
+
+        # Converter colunas numéricas para float, tratando erros
         for col in df.columns:
-            if col not in ['DateTime']: # Não tenta converter a coluna de data/hora
-                df[col] = pd.to_numeric(df[col], errors='coerce') # 'coerce' transforma erros em NaN
+            if col not in ["Date", "Time", "DateTime"]: # Não tenta converter colunas de data/hora
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
         return df
     except Exception as e:
@@ -219,7 +235,78 @@ if not todos_arquivos_info:
     st.info("Verifique se os arquivos .csv foram sincronizados corretamente para o GitHub.")
     st.stop()
 
-# Mapeamento de números de mês para nomes (para exibição)
+# --- Determinar o arquivo mais recente (por data + hora) ---
+# Filtra arquivos com data e hora válidas para encontrar o mais recente
+arquivos_com_data_valida = [a for a in todos_arquivos_info if a["data"] is not None and a["hora"] is not None]
+
+arquivo_mais_recente = None
+if arquivos_com_data_valida:
+    arquivo_mais_recente = max(
+        arquivos_com_data_valida,
+        key=lambda x: (x["data"], x["hora"]),
+    )
+
+# =====================================================
+#  PAINEL: Última leitura registrada (cards com ícones)
+# =====================================================
+st.markdown("### Última Leitura Registrada")
+
+if arquivo_mais_recente:
+    df_ultima_leitura = carregar_csv_caminho(arquivo_mais_recente["caminho"])
+    if not df_ultima_leitura.empty:
+        ultima_linha = df_ultima_leitura.iloc[-1] # Pega a última linha do DataFrame
+
+        st.subheader(f"Último Dashboard Enviado: {arquivo_mais_recente['nome_arquivo']}")
+        st.write(f"Data/Hora da Leitura: {ultima_linha['DateTime'].strftime('%d/%m/%Y %H:%M:%S')}")
+
+        # Define os ícones e cores para cada métrica
+        metric_icons = {
+            "Ambiente": "🌡️", # Termômetro
+            "Entrada": "➡️🌡️", # Seta azul + termômetro (azul para entrada)
+            "Saída": "⬅️🔥", # Seta vermelha + fogo (vermelho para saída)
+            "ΔT": "📈", # Gráfico de linha
+            "Tensão": "⚡", # Raio
+            "Corrente": "🔌", # Plugue
+            "kcal/h": "🔥", # Fogo
+            "Vazão": "💧", # Gota d'água (água para vazão)
+            "kW Aquecimento": "☀️", # Sol
+            "kW Consumo": "💡", # Lâmpada
+            "COP": "🏆", # Troféu (coeficiente de performance)
+        }
+
+        # Exibe as métricas em colunas
+        cols_metrics = st.columns(4) # 4 métricas por linha para um layout compacto
+        metrics_to_display = [
+            "Ambiente", "Entrada", "Saída", "ΔT", "Tensão", "Corrente",
+            "kcal/h", "Vazão", "kW Aquecimento", "kW Consumo", "COP"
+        ]
+
+        for i, metric_name in enumerate(metrics_to_display):
+            if metric_name in ultima_linha:
+                with cols_metrics[i % 4]:
+                    # Usando st.metric para exibir o valor com ícone
+                    st.metric(
+                        label=metric_name,
+                        value=f"{ultima_linha[metric_name]:.2f}" if pd.notna(ultima_linha[metric_name]) else "N/D",
+                        delta=None, # Não estamos calculando delta aqui
+                        help=f"Último valor de {metric_name}",
+                        label_visibility="visible",
+                        key=f"metric_{metric_name}"
+                    )
+    else:
+        st.warning("Não foi possível carregar os dados da última leitura do arquivo mais recente.")
+else:
+    st.info("Nenhum arquivo de histórico válido encontrado para exibir a última leitura.")
+
+st.markdown("---") # Separador visual
+
+# --- Título principal da página (mantido, mas o painel de última leitura está acima) ---
+# st.title("Máquina de Teste Fromtherm") # Comentado, pois já temos um título mais acima
+
+# --- Carregar lista de arquivos (já carregado) ---
+# todos_arquivos_info = listar_arquivos_csv() # Já foi chamado no início
+
+# --- Mapeamento de meses para exibição ---
 mes_label_map = {
     1: "01 - Janeiro", 2: "02 - Fevereiro", 3: "03 - Março", 4: "04 - Abril",
     5: "05 - Maio", 6: "06 - Junho", 7: "07 - Julho", 8: "08 - Agosto",
@@ -227,76 +314,75 @@ mes_label_map = {
 }
 
 # =====================================================
-#  SIDEBAR: Filtros de Arquivos
+#  FILTROS DE ARQUIVOS (Sidebar)
 # =====================================================
 st.sidebar.header("Filtros de Arquivos")
 
-# 1. Modelo
+# Coleta todas as opções únicas para os filtros
 all_modelos = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
+all_anos = sorted(list(set(a["ano"] for a in todos_arquivos_info if a["ano"] is not None)))
+all_meses = sorted(list(set(a["mes"] for a in todos_arquivos_info if a["mes"] is not None)))
+all_operacoes = sorted(list(set(a["operacao"] for a in todos_arquivos_info if a["operacao"] != "N/D")))
+
+# 1. Modelo
 selected_modelo = st.sidebar.selectbox(
     "Modelo (ex: FTI165HBR):",
     ["Todos"] + all_modelos,
     key="filter_modelo"
 )
 
-# Filtra arquivos com base no modelo selecionado
-arquivos_filtrados_por_modelo = [
-    a for a in todos_arquivos_info
-    if selected_modelo == "Todos" or a["modelo"] == selected_modelo
-]
+# Filtra os arquivos com base no modelo selecionado para popular as OPs
+filtered_by_model = [a for a in todos_arquivos_info if selected_modelo == "Todos" or a["modelo"] == selected_modelo]
+all_operacoes_for_model = sorted(list(set(a["operacao"] for a in filtered_by_model if a["operacao"] != "N/D")))
 
-# 2. N° Operação (filtrado dinamicamente pelo modelo)
-all_operacoes_for_model = sorted(list(set(a["operacao"] for a in arquivos_filtrados_por_modelo if a["operacao"] != "N/D")))
+# 2. N° Operação
 selected_operacao = st.sidebar.selectbox(
     "N° Operação (ex: OP987):",
     ["Todos"] + all_operacoes_for_model,
     key="filter_operacao"
 )
 
-# Filtra arquivos com base no modelo E operação selecionados
-arquivos_filtrados_por_modelo_op = [
-    a for a in arquivos_filtrados_por_modelo
-    if selected_operacao == "Todos" or a["operacao"] == selected_operacao
-]
+# Filtra os arquivos com base no modelo e operação selecionados para popular os anos
+filtered_by_model_op = [a for a in filtered_by_model if selected_operacao == "Todos" or a["operacao"] == selected_operacao]
+all_anos_for_model_op = sorted(list(set(a["ano"] for a in filtered_by_model_op if a["ano"] is not None)))
 
 # 3. Ano
-all_anos = sorted(list(set(a["ano"] for a in arquivos_filtrados_por_modelo_op if a["ano"] is not None)), reverse=True)
 selected_ano = st.sidebar.selectbox(
     "Ano:",
-    ["Todos"] + all_anos,
+    ["Todos"] + all_anos_for_model_op,
     key="filter_ano"
 )
 
-# Filtra arquivos com base no modelo, operação E ano selecionados
-arquivos_filtrados_por_modelo_op_ano = [
-    a for a in arquivos_filtrados_por_modelo_op
-    if selected_ano == "Todos" or a["ano"] == selected_ano
-]
+# Filtra os arquivos com base no modelo, operação e ano selecionados para popular os meses
+filtered_by_model_op_ano = [a for a in filtered_by_model_op if selected_ano == "Todos" or a["ano"] == selected_ano]
+all_meses_for_model_op_ano = sorted(list(set(a["mes"] for a in filtered_by_model_op_ano if a["mes"] is not None)))
+meses_labels_for_filter = ["Todos"] + [mes_label_map[m] for m in all_meses_for_model_op_ano]
 
 # 4. Mês
-all_meses = sorted(list(set(a["mes"] for a in arquivos_filtrados_por_modelo_op_ano if a["mes"] is not None)))
-meses_labels = ["Todos"] + [mes_label_map[m] for m in all_meses]
 selected_mes_label = st.sidebar.selectbox(
     "Mês:",
-    meses_labels,
+    meses_labels_for_filter,
     key="filter_mes"
 )
-
-# Converte o label do mês de volta para número
 selected_mes = None
 if selected_mes_label != "Todos":
     selected_mes = int(selected_mes_label.split(" ")[0])
 
-# Aplica o filtro final de mês
+
+# Aplica todos os filtros
 arquivos_filtrados = [
-    a for a in arquivos_filtrados_por_modelo_op_ano
-    if selected_mes is None or a["mes"] == selected_mes
+    a for a in todos_arquivos_info
+    if (selected_modelo == "Todos" or a["modelo"] == selected_modelo) and
+       (selected_operacao == "Todos" or a["operacao"] == selected_operacao) and
+       (selected_ano == "Todos" or a["ano"] == selected_ano) and
+       (selected_mes is None or a["mes"] == selected_mes)
 ]
 
+st.markdown("---") # Separador visual
+
 # =====================================================
-#  ÁREA PRINCIPAL: Lista de Arquivos Disponíveis
+#  ÁREA PRINCIPAL: Arquivos Disponíveis
 # =====================================================
-st.markdown("---")
 st.subheader("Arquivos Disponíveis")
 
 if not arquivos_filtrados:
