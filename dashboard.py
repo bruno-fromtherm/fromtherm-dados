@@ -405,7 +405,7 @@ st.sidebar.markdown("---")
 # 1. Modelo
 modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
 selected_modelo = st.sidebar.selectbox(
-    "🏷️ Modelo (ex: FTI165HBR):",
+    "Modelo:", # Label atualizado
     ["Todos"] + modelos_disponiveis,
     key="filter_modelo"
 )
@@ -420,7 +420,7 @@ arquivos_filtrados_por_modelo = [
 # 2. N° Operação (dinâmico com base no Modelo)
 operacoes_disponiveis = sorted(list(set(a["operacao"] for a in arquivos_filtrados_por_modelo if a["operacao"] != "N/D")))
 selected_operacao = st.sidebar.selectbox(
-    "🔢 N° Operação (ex: OP987):",
+    "Operação:", # Label atualizado
     ["Todos"] + operacoes_disponiveis,
     key="filter_operacao"
 )
@@ -435,7 +435,7 @@ arquivos_filtrados_por_modelo_op = [
 # 3. Ano
 anos_disponiveis = sorted(list(set(a["ano"] for a in arquivos_filtrados_por_modelo_op if a["ano"] is not None)), reverse=True)
 selected_ano = st.sidebar.selectbox(
-    "📅 Ano:",
+    "Ano:", # Label atualizado
     ["Todos"] + anos_disponiveis,
     key="filter_ano"
 )
@@ -457,7 +457,7 @@ meses_disponiveis_values = sorted(list(set(a["mes"] for a in arquivos_filtrados_
 meses_disponiveis_labels = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis_values]
 
 selected_mes_label = st.sidebar.selectbox(
-    "🗓️ Mês:",
+    "Mês:", # Label atualizado
     meses_disponiveis_labels,
     key="filter_mes"
 )
