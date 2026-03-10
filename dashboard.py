@@ -3,12 +3,13 @@ import pandas as pd
 import os
 import glob
 from datetime import datetime
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+# from reportlab.lib.pagesizes import A4, landscape # Comentado, pois a função PDF não está definida
+# from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle # Comentado
+# from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle # Comentado
+# from reportlab.lib import colors # Comentado
 from io import BytesIO
 import plotly.express as px
+import re # Importar re para expressões regulares
 
 # --- Configuração básica da página ---
 st.set_page_config(layout="wide", page_title="Máquina de Teste Fromtherm")
@@ -82,7 +83,7 @@ def listar_arquivos_csv():
     """
     Lista todos os arquivos .csv na pasta DADOS_DIR
     e extrai informações básicas do nome:
-    historico_L1_20260303_2140_OP1234_FT185.csv
+    historico_L1_20260308_0939_OP987_FTA987BR.csv
     """
     if not os.path.exists(DADOS_DIR):
         return []
@@ -92,36 +93,27 @@ def listar_arquivos_csv():
 
     for caminho in arquivos:
         nome = os.path.basename(caminho)
-        linha = ""
-        data = None
-        ano = None
-        mes = None
-        hora = ""
-        operacao = ""
-        modelo = ""
+        # Ajustado para o novo padrão de nome de arquivo
+        match = re.match(r"historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP\d{3})_(FTA\d{3}BR)\.csv", nome)
 
-        try:
-            partes = nome.replace(".csv", "").split("_")
-            # esperado: historico_L1_20260303_2140_OP1234_FT185.csv
-            if len(partes) >= 6:
-                linha = partes[1]             # L1
-                data_str = partes[2]          # 20260303
-                hora_str = partes[3]          # 2140
-                operacao = partes[4]          # OP1234
-                modelo = partes[5]            # FT185 ou similar
+        if match:
+            year_str, month_str, day_str, time_str, operacao, modelo = match.groups()
 
-                data = datetime.strptime(data_str, "%Y%m%d").date()
-                ano = data.year
-                mes = data.month
-                hora = f"{hora_str[:2]}:{hora_str[2:]}"
-        except Exception:
-            pass
+            try:
+                data = datetime.strptime(f"{year_str}{month_str}{day_str}", "%Y%m%d").date()
+                ano = int(year_str)
+                mes = int(month_str)
+                hora = f"{time_str[:2]}:{time_str[2:]}"
+            except ValueError:
+                data, ano, mes, hora = None, None, None, None
+        else:
+            data, ano, mes, hora, operacao, modelo = None, None, None, None, "N/D", "N/D"
 
         info_arquivos.append(
             {
                 "nome_arquivo": nome,
                 "caminho": caminho,
-                "linha": linha,
+                "linha": "L1", # Hardcoded como L1, ajuste se for dinâmico
                 "data": data,
                 "ano": ano,
                 "mes": mes,
@@ -134,12 +126,54 @@ def listar_arquivos_csv():
     return info_arquivos
 
 
-# --- Função para carregar um CSV (ponto e vírgula ou vírgula) ---
+# --- Função para carregar um CSV e processar (com tratamento aprimorado) ---
+@st.cache_data(ttl=600) # Cache por 10 minutos
 def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
     try:
-        return pd.read_csv(caminho, sep=";", engine="python")
-    except Exception:
-        return pd.read_csv(caminho, sep=",", engine="python")
+        # Ajustado para ler com separador de espaço/tab e decimal '.'
+        # O 'sep=r'\s+'' usa regex para um ou mais espaços/tabs como separador
+        df = pd.read_csv(caminho, sep=r'\s+', decimal='.', encoding='utf-8')
+
+        # Limpeza e conversão de tipos
+        for col in df.columns:
+            # Tentar converter para numérico (float)
+            try:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            except ValueError:
+                pass # Se não for numérico, mantém o tipo original
+
+        # Renomear colunas para o padrão esperado no dashboard
+        # Certifique-se que esta lista de colunas corresponde EXATAMENTE ao seu CSV
+        expected_columns = [
+            "Date", "Time", "Ambiente", "Entrada", "Saída", "ΔT",
+            "Tensão", "Corrente", "kcal/h", "Vazão", "kW Aquecimento",
+            "kW Consumo", "COP"
+        ]
+        # Verifica se o número de colunas corresponde antes de renomear
+        if len(df.columns) == len(expected_columns):
+            df.columns = expected_columns
+        else:
+            st.warning(f"O número de colunas no arquivo {os.path.basename(caminho)} ({len(df.columns)}) não corresponde ao esperado ({len(expected_columns)}). As colunas podem estar incorretas.")
+            # Tenta renomear as que batem, ou deixa como está se for muito diferente
+            # Ou você pode adicionar uma lógica mais robusta aqui.
+
+        # Combinar 'Date' e 'Time' em uma única coluna de datetime
+        if 'Date' in df.columns and 'Time' in df.columns:
+            # Ajuste o formato da data para 'YYYY/MM/DD' conforme o CSV
+            df['DateTime'] = pd.to_datetime(
+                df['Date'].astype(str) + ' ' + df['Time'].astype(str),
+                errors='coerce',
+                format='%Y/%m/%d %H:%M:%S' # Formato exato do seu CSV
+            )
+            df = df.drop(columns=['Date', 'Time']) # Remove as colunas originais
+            # Mover 'DateTime' para o início do DataFrame
+            cols = ['DateTime'] + [col for col in df.columns if col != 'DateTime']
+            df = df[cols]
+
+        return df
+    except Exception as e:
+        st.error(f"Erro ao carregar ou processar o arquivo {caminho}: {e}")
+        return pd.DataFrame() # Retorna um DataFrame vazio em caso de erro
 
 
 # --- Carregar lista de arquivos ---
@@ -151,6 +185,7 @@ if not todos_arquivos_info:
     st.stop()
 
 # --- Determinar o arquivo mais recente (por data + hora) ---
+# Garante que 'data' e 'hora' não sejam None para a comparação
 arquivo_mais_recente = max(
     todos_arquivos_info,
     key=lambda x: (
@@ -217,192 +252,179 @@ st.markdown(
 )
 
 try:
-    df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"]).copy()
+    df_ultimo = carregar_csv_caminho(arquivo_mais_recente["caminho"])
 
-    df_ultimo.columns = [
-        "Date",
-        "Time",
-        "Ambiente",
-        "Entrada",
-        "Saída",
-        "ΔT",
-        "Tensão",
-        "Corrente",
-        "kcal/h",
-        "Vazão",
-        "kW Aquecimento",
-        "kW Consumo",
-        "COP",
-    ]
+    if not df_ultimo.empty:
+        ultima_linha = df_ultimo.iloc[-1]
 
-    ultima_linha = df_ultimo.iloc[-1]
+        modelo_info = arquivo_mais_recente["modelo"] or "N/D"
+        op_info = arquivo_mais_recente["operacao"] or "N/D"
+        data_info = arquivo_mais_recente["data"].strftime("%d/%m/%Y") if arquivo_mais_recente["data"] else "N/D"
+        ano_info = arquivo_mais_recente["ano"] or "N/D"
+        hora_info = arquivo_mais_recente["hora"] or "N/D"
 
-    modelo_info = arquivo_mais_recente["modelo"] or "N/D"
-    op_info = arquivo_mais_recente["operacao"] or "N/D"
-    data_info = arquivo_mais_recente["data"].strftime("%d/%m/%Y") if arquivo_mais_recente["data"] else "N/D"
-    ano_info = arquivo_mais_recente["ano"] or "N/D"
-    hora_info = arquivo_mais_recente["hora"] or "N/D"
-
-    # Cabeçalho com informações do teste
-    st.markdown(
-        f"**Modelo:** {modelo_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Operação (OP):** {op_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Data:** {data_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Ano:** {ano_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
-        f"**Hora:** {hora_info}",
-        unsafe_allow_html=True,
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    # Coluna 1: temperaturas
-    with col1:
+        # Cabeçalho com informações do teste
         st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-thermometer-half ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">T-Ambiente (°C)</p>
-                <p class="ft-card-value">{ultima_linha['Ambiente']}</p>
-              </div>
-            </div>
-            """,
+            f"**Modelo:** {modelo_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"**Operação (OP):** {op_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"**Data:** {data_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"**Ano:** {ano_info} &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"**Hora:** {hora_info}",
             unsafe_allow_html=True,
         )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-arrow-down-circle ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">T-Entrada (°C)</p>
-                <p class="ft-card-value">{ultima_linha['Entrada']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        col1, col2, col3 = st.columns(3)
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-arrow-up-circle ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">T-Saída (°C)</p>
-                <p class="ft-card-value">{ultima_linha['Saída']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # Coluna 1: temperaturas
+        with col1:
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-thermometer-half ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">T-Ambiente (°C)</p>
+                    <p class="ft-card-value">{ultima_linha['Ambiente']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-plus-slash-minus ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">DIF (ΔT) (°C)</p>
-                <p class="ft-card-value">{ultima_linha['ΔT']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-arrow-down-circle ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">T-Entrada (°C)</p>
+                    <p class="ft-card-value">{ultima_linha['Entrada']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-    # Coluna 2: elétrica + vazão
-    with col2:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-lightning-charge ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">Tensão (V)</p>
-                <p class="ft-card-value">{ultima_linha['Tensão']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-arrow-up-circle ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">T-Saída (°C)</p>
+                    <p class="ft-card-value">{ultima_linha['Saída']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-lightning ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">Corrente (A)</p>
-                <p class="ft-card-value">{ultima_linha['Corrente']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-plus-slash-minus ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">DIF (ΔT) (°C)</p>
+                    <p class="ft-card-value">{ultima_linha['ΔT']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-fire ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">kcal/h</p>
-                <p class="ft-card-value">{ultima_linha['kcal/h']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # Coluna 2: elétrica + vazão
+        with col2:
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-lightning-charge ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">Tensão (V)</p>
+                    <p class="ft-card-value">{ultima_linha['Tensão']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-droplet ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">Vazão</p>
-                <p class="ft-card-value">{ultima_linha['Vazão']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-lightning ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">Corrente (A)</p>
+                    <p class="ft-card-value">{ultima_linha['Corrente']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-    # Coluna 3: potências e COP
-    with col3:
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-sun ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">kW Aquecimento</p>
-                <p class="ft-card-value">{ultima_linha['kW Aquecimento']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-fire ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">kcal/h</p>
+                    <p class="ft-card-value">{ultima_linha['kcal/h']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-plug ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">kW Consumo</p>
-                <p class="ft-card-value">{ultima_linha['kW Consumo']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-droplet ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">Vazão</p>
+                    <p class="ft-card-value">{ultima_linha['Vazão']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="ft-card">
-              <i class="bi bi-speedometer2 ft-card-icon"></i>
-              <div class="ft-card-content">
-                <p class="ft-card-title">COP</p>
-                <p class="ft-card-value">{ultima_linha['COP']}</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # Coluna 3: potências e COP
+        with col3:
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-sun ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">kW Aquecimento</p>
+                    <p class="ft-card-value">{ultima_linha['kW Aquecimento']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-plug ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">kW Consumo</p>
+                    <p class="ft-card-value">{ultima_linha['kW Consumo']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                f"""
+                <div class="ft-card">
+                  <i class="bi bi-speedometer2 ft-card-icon"></i>
+                  <div class="ft-card-content">
+                    <p class="ft-card-title">COP</p>
+                    <p class="ft-card-value">{ultima_linha['COP']}</p>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    else:
+        st.warning("Não foi possível carregar os dados da última leitura. Verifique o arquivo CSV.")
 
 except Exception as e:
     st.error(f"Não foi possível gerar o painel da última leitura: {e}")
@@ -501,154 +523,140 @@ with tab_hist:
     else:
         for i, arquivo in enumerate(arquivos_filtrados):
             with st.expander(
-                f"{arquivo['modelo']} - Linha: {arquivo['linha']} - Data: {arquivo['data']} - "
+                f"{arquivo['modelo']} - Linha: {arquivo['linha']} - Data: {arquivo['data'].strftime('%d/%m/%Y')} - "
                 f"Hora: {arquivo['hora']} - Operação: {arquivo['operacao']}"
             ):
                 try:
                     df_dados = carregar_csv_caminho(arquivo["caminho"])
 
-                    df_dados.columns = [
-                        "Date",
-                        "Time",
-                        "Ambiente",
-                        "Entrada",
-                        "Saída",
-                        "ΔT",
-                        "Tensão",
-                        "Corrente",
-                        "kcal/h",
-                        "Vazão",
-                        "kW Aquecimento",
-                        "kW Consumo",
-                        "COP",
-                    ]
+                    if not df_dados.empty:
+                        st.dataframe(df_dados, use_container_width=True)
 
-                    st.dataframe(df_dados, use_container_width=True)
+                        data_nome = arquivo["data"].strftime("%d-%m-%Y") if arquivo["data"] else "data"
+                        hora_nome = (arquivo["hora"] or "hora").replace(":", "-")
 
-                    data_nome = arquivo["data"].strftime("%d-%m-%Y") if arquivo["data"] else "data"
-                    hora_nome = (arquivo["hora"] or "hora").replace(":", "-")
+                        output_excel = BytesIO()
+                        with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
+                            df_dados.to_excel(writer, index=False, sheet_name="Dados")
+                            workbook = writer.book
+                            worksheet = writer.sheets["Dados"]
 
-                    output_excel = BytesIO()
-                    with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
-                        df_dados.to_excel(writer, index=False, sheet_name="Dados")
-                        workbook = writer.book
-                        worksheet = writer.sheets["Dados"]
+                            title_format = workbook.add_format(
+                                {
+                                    "bold": True,
+                                    "font_size": 14,
+                                    "font_color": "white",
+                                    "align": "center",
+                                    "valign": "vcenter",
+                                    "bg_color": "#003366",
+                                }
+                            )
+                            header_info_label = workbook.add_format(
+                                {
+                                    "bold": True,
+                                    "font_color": "black",
+                                    "align": "left",
+                                }
+                            )
+                            header_info_value = workbook.add_format(
+                                {"font_size": 11, "font_color": "black", "align": "left"}
+                            )
+                            header_data_format = workbook.add_format(
+                                {
+                                    "bold": True,
+                                    "font_color": "white",
+                                    "bg_color": "#003366",
+                                    "border": 1,
+                                    "align": "center",
+                                }
+                            )
+                            cell_data_format = workbook.add_format({"border": 1})
 
-                        title_format = workbook.add_format(
-                            {
-                                "bold": True,
-                                "font_size": 14,
-                                "font_color": "white",
-                                "align": "center",
-                                "valign": "vcenter",
-                                "bg_color": "#003366",
-                            }
+                            col_count = len(df_dados.columns)
+                            last_col_letter = chr(ord("A") + col_count - 1)
+                            worksheet.merge_range(
+                                f"A1:{last_col_letter}1",
+                                "Planilha Teste de Máquinas Fromtherm",
+                                title_format,
+                            )
+
+                            data_excel = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else ""
+                            hora_excel = arquivo["hora"] or ""
+                            oper_excel = arquivo["operacao"] or ""
+                            modelo_excel = arquivo["modelo"] or ""
+                            linha_excel = arquivo["linha"] or ""
+
+                            info_labels = ["Data", "Hora", "Operação", "Modelo", "Linha"]
+                            info_values = [data_excel, hora_excel, oper_excel, modelo_excel, linha_excel]
+
+                            for idx, (label, value) in enumerate(zip(info_labels, info_values)):
+                                row = 2 + idx
+                                worksheet.write(row, 0, label, header_info_label)
+                                worksheet.write(row, 1, value, header_info_value)
+
+                            worksheet.set_column(0, 0, 15)
+                            worksheet.set_column(1, 1, 20)
+
+                            header_row = 8
+                            for col, col_name in enumerate(df_dados.columns):
+                                worksheet.write(header_row, col, col_name, header_data_format)
+
+                            for row in range(len(df_dados)):
+                                for col in range(len(df_dados.columns)):
+                                    worksheet.write(
+                                        row + header_row + 1,
+                                        col,
+                                        df_dados.iloc[row, col],
+                                        cell_data_format,
+                                    )
+
+                            for col_idx, col_name in enumerate(df_dados.columns):
+                                if "kW" in col_name:
+                                    worksheet.set_column(col_idx, col_idx, 15)
+                                elif "Ambiente" in col_name or "Corrente" in col_name:
+                                    worksheet.set_column(col_idx, col_idx, 10)
+                                elif "Date" in col_name: # Coluna 'Date' não existe mais após a conversão para 'DateTime'
+                                    worksheet.set_column(col_idx, col_idx, 10)
+                                elif "Time" in col_name: # Coluna 'Time' não existe mais
+                                    worksheet.set_column(col_idx, col_idx, 8)
+                                elif "DateTime" in col_name: # Adicionado para a nova coluna de data/hora
+                                    worksheet.set_column(col_idx, col_idx, 18)
+                                else:
+                                    worksheet.set_column(col_idx, col_idx, 12)
+
+                        output_excel.seek(0)
+                        st.download_button(
+                            label="Exportar para Excel",
+                            data=output_excel,
+                            file_name=(
+                                f"Maquina_{arquivo['modelo'] or 'N_D'}_"
+                                f"{arquivo['operacao'] or 'OP'}_"
+                                f"{data_nome}_{hora_nome}.xlsx"
+                            ),
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"excel_download_{i}",
                         )
-                        header_info_label = workbook.add_format(
-                            {
-                                "bold": True,
-                                "font_color": "black",
-                                "align": "left",
-                            }
-                        )
-                        header_info_value = workbook.add_format(
-                            {"font_size": 11, "font_color": "black", "align": "left"}
-                        )
-                        header_data_format = workbook.add_format(
-                            {
-                                "bold": True,
-                                "font_color": "white",
-                                "bg_color": "#003366",
-                                "border": 1,
-                                "align": "center",
-                            }
-                        )
-                        cell_data_format = workbook.add_format({"border": 1})
 
-                        col_count = len(df_dados.columns)
-                        last_col_letter = chr(ord("A") + col_count - 1)
-                        worksheet.merge_range(
-                            f"A1:{last_col_letter}1",
-                            "Planilha Teste de Máquinas Fromtherm",
-                            title_format,
-                        )
-
-                        data_excel = arquivo["data"].strftime("%d/%m/%Y") if arquivo["data"] else ""
-                        hora_excel = arquivo["hora"] or ""
-                        oper_excel = arquivo["operacao"] or ""
-                        modelo_excel = arquivo["modelo"] or ""
-                        linha_excel = arquivo["linha"] or ""
-
-                        info_labels = ["Data", "Hora", "Operação", "Modelo", "Linha"]
-                        info_values = [data_excel, hora_excel, oper_excel, modelo_excel, linha_excel]
-
-                        for idx, (label, value) in enumerate(zip(info_labels, info_values)):
-                            row = 2 + idx
-                            worksheet.write(row, 0, label, header_info_label)
-                            worksheet.write(row, 1, value, header_info_value)
-
-                        worksheet.set_column(0, 0, 15)
-                        worksheet.set_column(1, 1, 20)
-
-                        header_row = 8
-                        for col, col_name in enumerate(df_dados.columns):
-                            worksheet.write(header_row, col, col_name, header_data_format)
-
-                        for row in range(len(df_dados)):
-                            for col in range(len(df_dados.columns)):
-                                worksheet.write(
-                                    row + header_row + 1,
-                                    col,
-                                    df_dados.iloc[row, col],
-                                    cell_data_format,
-                                )
-
-                        for col_idx, col_name in enumerate(df_dados.columns):
-                            if "kW" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 15)
-                            elif "Ambiente" in col_name or "Corrente" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 10)
-                            elif "Date" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 10)
-                            elif "Time" in col_name:
-                                worksheet.set_column(col_idx, col_idx, 8)
-                            else:
-                                worksheet.set_column(col_idx, col_idx, 12)
-
-                    output_excel.seek(0)
-                    st.download_button(
-                        label="Exportar para Excel",
-                        data=output_excel,
-                        file_name=(
-                            f"Maquina_{arquivo['modelo'] or 'N_D'}_"
-                            f"{arquivo['operacao'] or 'OP'}_"
-                            f"{data_nome}_{hora_nome}.xlsx"
-                        ),
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key=f"excel_download_{i}",
-                    )
-
-                    pdf_buffer = BytesIO()
-                    # Aqui você deve manter sua função criar_pdf_paisagem original;
-                    # para simplificar, assumo que ela já está definida acima.
-                    # pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
-
-                    # Se não quiser mexer no PDF agora, pode comentar as 3 linhas abaixo:
-                    # st.download_button(
-                    #     label="Exportar para PDF",
-                    #     data=pdf_buffer,
-                    #     file_name=(
-                    #         f"Maquina_{arquivo['modelo'] or 'N_D'}_"
-                    #         f"{arquivo['operacao'] or 'OP'}_"
-                    #         f"{data_nome}_{hora_nome}.pdf"
-                    #     ),
-                    #     mime="application/pdf",
-                    #     key=f"pdf_download_{i}",
-                    # )
+                        # PDF - Mantenha comentado se não tiver a função criar_pdf_paisagem definida
+                        # pdf_buffer = BytesIO()
+                        # pdf_buffer = criar_pdf_paisagem(df_dados, arquivo)
+                        # st.download_button(
+                        #     label="Exportar para PDF",
+                        #     data=pdf_buffer,
+                        #     file_name=(
+                        #         f"Maquina_{arquivo['modelo'] or 'N_D'}_"
+                        #         f"{arquivo['operacao'] or 'OP'}_"
+                        #         f"{data_nome}_{hora_nome}.pdf"
+                        #     ),
+                        #     mime="application/pdf",
+                        #     key=f"pdf_download_{i}",
+                        # )
+                    else:
+                        st.warning(f"Não foi possível exibir dados para o arquivo '{arquivo['nome_arquivo']}'.")
 
                 except Exception as e:
                     st.error(f"Erro ao carregar ou exibir o arquivo '{arquivo['nome_arquivo']}': {e}")
-                    st.info("Verifique se o arquivo CSV está no formato correto (separado por ponto e vírgula ';' ou vírgula ',').")
+                    st.info("Verifique se o arquivo CSV está no formato correto (separado por espaços e decimal ponto).")
 
 
 # =========================
@@ -727,90 +735,63 @@ with tab_graf:
         st.markdown(f"Arquivo selecionado: **{arquivo_escolhido['nome_arquivo']}**")
 
         try:
-            df_graf = carregar_csv_caminho(arquivo_escolhido["caminho"]).copy()
+            df_graf = carregar_csv_caminho(arquivo_escolhido["caminho"])
 
-            df_graf.columns = [
-                "Date",
-                "Time",
-                "Ambiente",
-                "Entrada",
-                "Saída",
-                "ΔT",
-                "Tensão",
-                "Corrente",
-                "kcal/h",
-                "Vazão",
-                "kW Aquecimento",
-                "kW Consumo",
-                "COP",
-            ]
+            if not df_graf.empty:
+                # A coluna 'DateTime' já deve estar criada e formatada por carregar_csv_caminho
+                # Certifique-se que o nome da coluna de tempo é 'DateTime' para o gráfico
+                if 'DateTime' not in df_graf.columns:
+                    st.error("Coluna 'DateTime' não encontrada no DataFrame para o gráfico. Verifique a função de carregamento.")
+                else:
+                    st.markdown("### Variáveis para o gráfico")
 
-            try:
-                df_graf["DateTime"] = pd.to_datetime(
-                    df_graf["Date"].astype(str) + " " + df_graf["Time"].astype(str),
-                    errors="coerce",
-                )
-            except Exception:
-                df_graf["DateTime"] = df_graf["Time"]
+                    # Usar os nomes de colunas do DataFrame carregado, exceto 'DateTime'
+                    variaveis_opcoes = [col for col in df_graf.columns if col != 'DateTime']
 
-            st.markdown("### Variáveis para o gráfico")
+                    vars_selecionadas = st.multiselect(
+                        "Selecione uma ou mais variáveis:",
+                        variaveis_opcoes,
+                        default=["Ambiente", "Entrada", "Saída"] if all(v in variaveis_opcoes for v in ["Ambiente", "Entrada", "Saída"]) else variaveis_opcoes[:3],
+                    )
 
-            variaveis_opcoes = [
-                "Ambiente",
-                "Entrada",
-                "Saída",
-                "ΔT",
-                "Tensão",
-                "Corrente",
-                "kcal/h",
-                "Vazão",
-                "kW Aquecimento",
-                "kW Consumo",
-                "COP",
-            ]
+                    if not vars_selecionadas:
+                        st.info("Selecione pelo menos uma variável para gerar o gráfico.")
+                    else:
+                        df_plot = df_graf[["DateTime"] + vars_selecionadas].copy()
+                        df_melted = df_plot.melt(
+                            id_vars="DateTime",
+                            value_vars=vars_selecionadas,
+                            var_name="Variável",
+                            value_name="Valor",
+                        )
 
-            vars_selecionadas = st.multiselect(
-                "Selecione uma ou mais variáveis:",
-                variaveis_opcoes,
-                default=["Ambiente", "Entrada", "Saída"],
-            )
+                        fig = px.line(
+                            df_melted,
+                            x="DateTime",
+                            y="Valor",
+                            color="Variável",
+                            title=f"Gráfico - Modelo {modelo_graf} | OP {op_graf} | {ano_graf}/{mes_graf_label.split(' ')[0]}",
+                            markers=True,
+                        )
 
-            if not vars_selecionadas:
-                st.info("Selecione pelo menos uma variável para gerar o gráfico.")
+                        fig.update_yaxes(rangemode="tozero")
+
+                        fig.update_layout(
+                            xaxis_title="Tempo",
+                            yaxis_title="Valor",
+                            hovermode="x unified",
+                            legend_title="Variáveis",
+                        )
+
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        st.markdown(
+                            "- Use o botão de **fullscreen** no gráfico para expandir.\n"
+                            "- Use o ícone de **câmera** no gráfico para baixar como imagem (PNG).\n"
+                            "- A imagem baixada pode ser compartilhada via WhatsApp, e-mail, etc., em qualquer dispositivo."
+                        )
             else:
-                df_plot = df_graf[["DateTime"] + vars_selecionadas].copy()
-                df_melted = df_plot.melt(
-                    id_vars="DateTime",
-                    value_vars=vars_selecionadas,
-                    var_name="Variável",
-                    value_name="Valor",
-                )
-
-                fig = px.line(
-                    df_melted,
-                    x="DateTime",
-                    y="Valor",
-                    color="Variável",
-                    title=f"Gráfico - Modelo {modelo_graf} | OP {op_graf} | {ano_graf}/{mes_graf_label.split(' ')[0]}",
-                    markers=True,
-                )
-
-                fig.update_yaxes(rangemode="tozero")
-
-                fig.update_layout(
-                    xaxis_title="Tempo",
-                    yaxis_title="Valor",
-                    hovermode="x unified",
-                    legend_title="Variáveis",
-                )
-
-                st.plotly_chart(fig, use_container_width=True)
-
-                st.markdown(
-                    "- Use o botão de **fullscreen** no gráfico para expandir.\n"
-                    "- Use o ícone de **câmera** no gráfico para baixar como imagem (PNG).\n"
-                    "- A imagem baixada pode ser compartilhada via WhatsApp, e-mail, etc., em qualquer dispositivo."
-                )
+                st.warning(f"Não foi possível carregar dados para o gráfico do arquivo '{arquivo_escolhido['nome_arquivo']}'.")
 
         except Exception as e:
             st.error(f"Erro ao carregar dados para o gráfico: {e}")
