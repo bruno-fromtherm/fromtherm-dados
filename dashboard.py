@@ -111,7 +111,7 @@ st.markdown(
         border-radius: 10px;
         padding: 15px 20px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08); /* Sombra leve */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Sombra leve */
         text-align: left; /* Alinhamento à esquerda */
         border-left: 5px solid #003366; /* Borda esquerda azul */
         height: 100%; /* Garante que todos os cards tenham a mesma altura */
@@ -226,31 +226,21 @@ st.markdown(
         .metric-value {
             font-size: 1.5em;
         }
-        /* Ajusta o layout de colunas para empilhar em telas menores */
-        div[data-testid="stColumns"] > div {
-            width: 100% !important;
-            flex: 1 1 100% !important;
-            margin-right: 0 !important;
-        }
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- Logo e cabeçalho fixo no topo da página ---
-# Usando um container para o cabeçalho fixo
-st.markdown(
-    f"""
-    <div style="background-color:#003366; padding: 10px 0px 10px 30px; margin: -20px -30px 20px -30px; border-radius: 12px 12px 0 0; display: flex; align-items: center;">
-        <img src="https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png" style="height: 40px; margin-right: 15px;">
-        <h2 style="color:white; margin:0; padding:0;">Dashboard Industrial</h2>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# --- Logo e cabeçalho na barra lateral ---
+LOGO_URL = "https://fromtherm.com.br/wp-content/uploads/2023/07/logo-fromtherm-1.png"
+st.sidebar.image(LOGO_URL, use_column_width=True)
+st.sidebar.markdown("## Painel de Monitoramento") # Título principal da sidebar
+st.sidebar.markdown("---") # Separador
 
 # --- Pasta onde ficam os arquivos de histórico ---
+# Certifique-se de que este caminho está correto para o ambiente de deploy
+# No Streamlit Cloud, você precisará configurar o repositório para incluir esta pasta
 DADOS_DIR = "dados_brutos/historico_L1/IP_registro192.168.2.150/datalog"
 
 # --- Função para listar arquivos CSV localmente ---
@@ -262,6 +252,7 @@ def listar_arquivos_csv():
     Tenta ser flexível com o padrão de nome.
     """
     if not os.path.exists(DADOS_DIR):
+        st.error(f"Diretório de dados não encontrado: {DADOS_DIR}. Verifique o caminho.")
         return []
 
     arquivos = glob.glob(os.path.join(DADOS_DIR, "*.csv"))
@@ -273,8 +264,6 @@ def listar_arquivos_csv():
         # Padrão mais flexível para capturar OP e o final do nome
         # Ex: historico_L1_20260308_0939_OP987_FTA987BR.csv
         # Ex: historico_L1_20260306_1717_OP9090_FT55L.csv
-        # Ex: historico_L1_20260306_1717_OP9090_FT55L.csv (com .csvl no final)
-        # Ajuste para o final do nome ser mais genérico e capturar o que vier depois de OP\d+
         match = re.match(r"historico_L1_(\d{4})(\d{2})(\d{2})_(\d{4})_(OP\d+)_([a-zA-Z0-9\._-]+)\.csv", nome)
 
         data, ano, mes, hora, operacao, modelo = None, None, None, None, "N/D", "N/D"
@@ -384,87 +373,46 @@ def carregar_csv_caminho(caminho: str) -> pd.DataFrame:
 
         return df
 
+    except FileNotFoundError:
+        st.error(f"Arquivo não encontrado: {caminho}")
+        return pd.DataFrame()
     except Exception as e:
         st.error(f"Erro ao carregar ou processar o arquivo CSV: {e}")
         return pd.DataFrame()
 
-# --- Inicialização do estado da sessão ---
-if 'selected_file_path' not in st.session_state:
-    st.session_state.selected_file_path = None
+# =====================================================
+#  SIDEBAR: Filtros de Dados
+# =====================================================
+st.sidebar.markdown("## ⚙️ Filtros de Dados")
 
-# --- Listar todos os arquivos CSV e suas informações ---
 todos_arquivos_info = listar_arquivos_csv()
 
-# =====================================================
-#  BARRA LATERAL: Filtros de Arquivos
-# =====================================================
-st.sidebar.markdown("<h2 style='color:white;'>Filtros de Dados</h2>", unsafe_allow_html=True)
+# Extrair opções únicas para os filtros
+modelos = sorted(list(set([a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D"])))
+operacoes = sorted(list(set([a["operacao"] for a in todos_arquivos_info if a["operacao"] != "N/D"])))
+anos = sorted(list(set([a["ano"] for a in todos_arquivos_info if a["ano"] is not None])), reverse=True)
+meses = sorted(list(set([a["mes"] for a in todos_arquivos_info if a["mes"] is not None])))
 
-# 1. Modelo
-modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
-selected_modelo = st.sidebar.selectbox(
-    "Modelo:", # Label explícito
-    ["Todos"] + modelos_disponiveis,
-    key="filter_modelo"
-)
-st.sidebar.markdown("---")
+# Adicionar opção "Todos" e selectbox
+selected_modelo = st.sidebar.selectbox("Modelo:", ["Todos"] + modelos, key="sidebar_modelo")
+selected_operacao = st.sidebar.selectbox("Operação:", ["Todos"] + operacoes, key="sidebar_operacao")
+selected_ano = st.sidebar.selectbox("Ano:", ["Todos"] + anos, key="sidebar_ano")
 
-# Filtrar arquivos pelo modelo selecionado para popular a próxima seleção
-arquivos_filtrados_por_modelo = [
-    a for a in todos_arquivos_info
-    if (selected_modelo == "Todos" or a["modelo"] == selected_modelo)
-]
-
-# 2. Operação (dinâmico com base no Modelo)
-operacoes_disponiveis = sorted(list(set(a["operacao"] for a in arquivos_filtrados_por_modelo if a["operacao"] != "N/D")))
-selected_operacao = st.sidebar.selectbox(
-    "Operação:", # Label explícito
-    ["Todos"] + operacoes_disponiveis,
-    key="filter_operacao"
-)
-st.sidebar.markdown("---")
-
-# Filtrar arquivos pelo modelo e operação selecionados para popular a próxima seleção
-arquivos_filtrados_por_modelo_op = [
-    a for a in arquivos_filtrados_por_modelo
-    if (selected_operacao == "Todos" or a["operacao"] == selected_operacao)
-]
-
-# 3. Ano
-anos_disponiveis = sorted(list(set(a["ano"] for a in arquivos_filtrados_por_modelo_op if a["ano"] is not None)), reverse=True)
-selected_ano = st.sidebar.selectbox(
-    "Ano:", # Label explícito
-    ["Todos"] + anos_disponiveis,
-    key="filter_ano"
-)
-st.sidebar.markdown("---")
-
-# Filtrar arquivos pelo modelo, operação e ano selecionados para popular a próxima seleção
-arquivos_filtrados_por_modelo_op_ano = [
-    a for a in arquivos_filtrados_por_modelo_op
-    if (selected_ano == "Todos" or a["ano"] == selected_ano)
-]
-
-# 4. Mês
-mes_label_map = {
-    1: "01 - Janeiro", 2: "02 - Fevereiro", 3: "03 - Março", 4: "04 - Abril",
-    5: "05 - Maio", 6: "06 - Junho", 7: "07 - Julho", 8: "08 - Agosto",
-    9: "09 - Setembro", 10: "10 - Outubro", 11: "11 - Novembro", 12: "12 - Dezembro"
+# Mapeamento de números de mês para nomes
+meses_nomes = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 }
-meses_disponiveis_values = sorted(list(set(a["mes"] for a in arquivos_filtrados_por_modelo_op_ano if a["mes"] is not None)))
-meses_disponiveis_labels = ["Todos"] + [mes_label_map[m] for m in meses_disponiveis_values]
+meses_opcoes_com_nomes = ["Todos"] + [meses_nomes[m] for m in meses]
+selected_mes_nome = st.sidebar.selectbox("Mês:", meses_opcoes_com_nomes, key="sidebar_mes")
 
-selected_mes_label = st.sidebar.selectbox(
-    "Mês:", # Label explícito
-    meses_disponiveis_labels,
-    key="filter_mes"
-)
+# Converte o nome do mês selecionado de volta para número para o filtro
 selected_mes = None
-if selected_mes_label != "Todos":
-    selected_mes = meses_disponiveis_values[meses_disponiveis_labels.index(selected_mes_label) - 1] # -1 porque "Todos" é o primeiro item
-st.sidebar.markdown("---")
+if selected_mes_nome != "Todos":
+    selected_mes = {v: k for k, v in meses_nomes.items()}[selected_mes_nome]
 
-# Aplicar todos os filtros para a lista final de arquivos
+# Filtrar arquivos
 arquivos_filtrados = [
     a for a in todos_arquivos_info
     if (selected_modelo == "Todos" or a["modelo"] == selected_modelo)
@@ -476,45 +424,45 @@ arquivos_filtrados = [
 # Ordenar os arquivos filtrados por data e hora (mais recente primeiro)
 arquivos_filtrados.sort(key=lambda x: (x['data'] if x['data'] else datetime.min.date(), x['hora'] if x['hora'] else '00:00'), reverse=True)
 
-
 # =====================================================
-#  ÁREA PRINCIPAL: Painel de Última Leitura Registrada
+#  ÁREA PRINCIPAL: Visão Geral da Última Leitura
 # =====================================================
-st.header("Visão Geral da Última Leitura")
+st.header("✨ Visão Geral da Última Leitura")
 
 if todos_arquivos_info:
-    # Encontra o arquivo mais recente com base na data e hora
-    arquivo_mais_recente = max(
-        (a for a in todos_arquivos_info if a['data'] and a['hora']),
-        key=lambda x: (x['data'], x['hora']),
-        default=None
-    )
+    # Pega o arquivo mais recente de todos os arquivos disponíveis (sem filtros)
+    arquivo_mais_recente = max(todos_arquivos_info, key=lambda x: (x['data'] if x['data'] else datetime.min.date(), x['hora'] if x['hora'] else '00:00'))
 
     if arquivo_mais_recente:
         st.markdown(f"**Arquivo:** `{arquivo_mais_recente['nome_arquivo']}`")
-        st.markdown(f"**Data e Hora da Leitura:** {arquivo_mais_recente['data'].strftime('%d/%m/%Y')} {arquivo_mais_recente['hora']}")
 
-        with st.status("Carregando dados da última leitura...", expanded=True) as status:
-            df_ultima_leitura = carregar_csv_caminho(arquivo_mais_recente['caminho'])
-            if not df_ultima_leitura.empty:
-                status.update(label="Dados da última leitura carregados!", state="complete", expanded=False)
+        # Carrega os dados do arquivo mais recente
+        df_recente = carregar_csv_caminho(arquivo_mais_recente['caminho'])
+
+        if not df_recente.empty and 'DateTime' in df_recente.columns:
+            # Pega a última linha do DataFrame para as métricas
+            ultima_linha = df_recente.iloc[-1].to_dict()
+
+            # Formata a data e hora da última leitura
+            data_hora_leitura = ultima_linha.get('DateTime')
+            if pd.notna(data_hora_leitura):
+                st.markdown(f"**Data e Hora da Leitura:** `{data_hora_leitura.strftime('%d/%m/%Y %H:%M:%S')}`")
             else:
-                status.update(label="Falha ao carregar dados da última leitura.", state="error", expanded=True)
+                st.markdown("**Data e Hora da Leitura:** N/D")
 
+            st.markdown("---")
+            st.subheader("Dados da última leitura carregados!")
 
-        if not df_ultima_leitura.empty:
-            ultima_linha = df_ultima_leitura.iloc[-1]
-
-            # Mapeamento de ícones e unidades para as métricas
-            metric_icons = {
-                "Ambiente": "🌡️", "Entrada": "💧", "Saída": "🔥", "ΔT": "↔️",
-                "Tensão": "⚡", "Corrente": "🔌", "kcal/h": "♨️", "Vazão": "🌊",
-                "kW Aquecimento": "🔥", "kW Consumo": "💡", "COP": "📈"
-            }
+            # Definições para os cards de métricas
             metric_units = {
                 "Ambiente": "°C", "Entrada": "°C", "Saída": "°C", "ΔT": "°C",
                 "Tensão": "V", "Corrente": "A", "kcal/h": "kcal/h", "Vazão": "L/h",
                 "kW Aquecimento": "kW", "kW Consumo": "kW", "COP": ""
+            }
+            metric_icons = {
+                "Ambiente": "🌡️", "Entrada": "💧", "Saída": "💧", "ΔT": "↔️",
+                "Tensão": "⚡", "Corrente": " एंपियर", "kcal/h": "🔥", "Vazão": "🌊",
+                "kW Aquecimento": "♨️", "kW Consumo": "💡", "COP": "📈"
             }
             metric_titles = {
                 "Ambiente": "T-Ambiente", "Entrada": "T-Entrada", "Saída": "T-Saída", "ΔT": "Dif. Temperatura",
@@ -650,12 +598,12 @@ if st.session_state.selected_file_path:
         st.markdown("---")
         st.subheader("📈 Crie Seu Gráfico Personalizado")
 
+        st.markdown("Selecione as variáveis que deseja visualizar no gráfico de linha:")
+
         # Usar o DataFrame do arquivo selecionado para gerar o gráfico
         df_graf = df_dados.copy()
 
         if not df_graf.empty and 'DateTime' in df_graf.columns:
-            st.markdown("Selecione as variáveis que deseja visualizar no gráfico de linha:")
-
             # Usar os nomes de colunas do DataFrame carregado, exceto 'DateTime'
             variaveis_opcoes = [col for col in df_graf.columns if col not in ['DateTime', 'Date', 'Time']]
 
