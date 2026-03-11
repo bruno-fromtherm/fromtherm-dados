@@ -393,14 +393,12 @@ if 'selected_file_path' not in st.session_state:
     st.session_state.selected_file_path = None
 
 # --- Listar todos os arquivos CSV e suas informações ---
-with st.spinner("Carregando arquivos de dados..."):
-    todos_arquivos_info = listar_arquivos_csv()
+todos_arquivos_info = listar_arquivos_csv()
 
 # =====================================================
-#  BARRA LATERAL: Filtros de Arquivos (Melhorada com ícones e espaçamento)
+#  BARRA LATERAL: Filtros de Arquivos
 # =====================================================
-st.sidebar.markdown("## <span style='color:white;'>⚙️ Filtros de Dados</span>", unsafe_allow_html=True)
-st.sidebar.markdown("---")
+st.sidebar.markdown("<h2 style='color:white;'>Filtros de Dados</h2>", unsafe_allow_html=True)
 
 # 1. Modelo
 modelos_disponiveis = sorted(list(set(a["modelo"] for a in todos_arquivos_info if a["modelo"] != "N/D")))
@@ -417,7 +415,7 @@ arquivos_filtrados_por_modelo = [
     if (selected_modelo == "Todos" or a["modelo"] == selected_modelo)
 ]
 
-# 2. N° Operação (dinâmico com base no Modelo)
+# 2. Operação (dinâmico com base no Modelo)
 operacoes_disponiveis = sorted(list(set(a["operacao"] for a in arquivos_filtrados_por_modelo if a["operacao"] != "N/D")))
 selected_operacao = st.sidebar.selectbox(
     "Operação:", # Label explícito
